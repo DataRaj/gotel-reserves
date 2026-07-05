@@ -26,20 +26,20 @@ sed -i 's/^bind .*/bind 127.0.0.1/' "$REDIS_CONF"
 if ! grep -q "^requirepass " "$REDIS_CONF"; then
     REDIS_PASS=$(openssl rand -hex 32)
     echo "requirepass $REDIS_PASS" >> "$REDIS_CONF"
-    echo "[setup] Redis password: $REDIS_PASS  — add to /opt/airstage/.env as REDIS_URL"
+    echo "[setup] Redis password: $REDIS_PASS  — add to /opt/recallo/.env as REDIS_URL"
 fi
 systemctl enable redis-server
 systemctl restart redis-server
 
 # ── 5. App directories ────────────────────────────────────────────────────────
-mkdir -p /opt/airstage/bin
-chown -R deploy:deploy /opt/airstage
+mkdir -p /opt/recallo/bin
+chown -R deploy:deploy /opt/recallo
 
 # ── 6. Nginx ──────────────────────────────────────────────────────────────────
-NGINX_CONF=/etc/nginx/sites-available/airstage
-cp "$(dirname "$0")/../nginx/airstage" "$NGINX_CONF"
+NGINX_CONF=/etc/nginx/sites-available/recallo
+cp "$(dirname "$0")/../nginx/recallo" "$NGINX_CONF"
 sed -i "s/api.yourdomain.com/$DOMAIN/g" "$NGINX_CONF"
-ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/airstage
+ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/recallo
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
@@ -47,14 +47,15 @@ systemctl reload nginx
 # ── 7. TLS ────────────────────────────────────────────────────────────────────
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "ops@$DOMAIN" --redirect
 
-# ── 8. Systemd unit ───────────────────────────────────────────────────────────
-cp "$(dirname "$0")/../systemd/airstage-api.service" /etc/systemd/system/
+# ── 8. Systemd unit (Optional if not using PMGo) ──────────────────────────────
+cp "$(dirname "$0")/../systemd/recallo-api.service" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable airstage-api
+systemctl enable recallo-api
 
 echo ""
 echo "[setup] Done. Next:"
-echo "  1. SCP your .env to /opt/airstage/.env (owned deploy:deploy, chmod 600)"
-echo "  2. SCP the binary to /opt/airstage/bin/airstage"
-echo "  3. systemctl start airstage-api"
-echo "  4. journalctl -u airstage-api -f"
+echo "  1. SCP your .env to /opt/recallo/.env (owned deploy:deploy, chmod 600)"
+echo "  2. SCP the binary to /opt/recallo/bin/recallo"
+echo "  3. If using PMGo: pmgo start /opt/recallo/bin/recallo recallo-api"
+echo "     If using systemd: systemctl start recallo-api"
+echo "  4. Check logs: pmgo logs recallo-api OR journalctl -u recallo-api -f"

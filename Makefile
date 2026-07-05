@@ -44,7 +44,7 @@ migratedown:
 ## Static binary for Linux/amd64 production deployment
 build-prod:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-	  go build -ldflags="-s -w" -trimpath -o bin/airstage ./cmd/api
+	  go build -ldflags="-s -w" -trimpath -o bin/recallo ./cmd/api
 
 ## Build Docker image (scratch-based, ~5MB)
 docker-build:

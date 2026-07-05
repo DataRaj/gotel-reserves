@@ -1,51 +1,95 @@
-name: Deploy
+name: Production CI/CD Deploy (PMGo)
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  test-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Build static binary
+      - name: Run unit & integration tests
+        run: go test -v ./...
+
+      - name: Build static production binary
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -ldflags="-s -w" -trimpath -o bin/airstage ./cmd/api
+            go build -ldflags="-s -w" -trimpath -o bin/recallo ./cmd/api
 
-      - name: Copy binary to droplet
+      - name: Copy binary to DigitalOcean Droplet
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_IP }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: bin/airstage
-          target: /opt/airstage/bin/
+          source: bin/recallo
+          target: /opt/recallo/bin/
           strip_components: 1
 
-      - name: Reload service
+      - name: Reload application process via PMGo
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DROPLET_IP }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            sudo systemctl restart airstage-api
+            export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
+            cd /opt/recallo
+            chmod +x /opt/recallo/bin/recallo
+            # Attempt to restart existing PMGo process; if not present, start a new instance
+            pmgo restart recallo-api || pmgo start /opt/recallo/bin/recallo recallo-api
+            pmgo save
             sleep 3
-            systemctl is-active --quiet airstage-api || (journalctl -u airstage-api -n 30 && exit 1)
+            # Verify process is running under PMGo
+            pmgo list | grep -q "recallo-api" || (pmgo logs recallo-api && exit 1)
 
-      - name: Health check
+      - name: Post-deployment HTTP health check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DROPLET_IP }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            curl -sf https://${{ secrets.DOMAIN }}/api/v1/healthcheck
+            echo "Performing HTTP health check against https://${{ secrets.DOMAIN }}/api/v1/healthcheck..."
+            curl -f --retry 5 --retry-delay 3 --retry-all-errors https://${{ secrets.DOMAIN }}/api/v1/healthcheck
+            echo "HTTP health check passed successfully!"
+            
+            echo "Performing WebSocket health check against wss://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck..."
+            MAX_RETRIES=5
+            RETRY_DELAY=3
+            for i in $(seq 1 $MAX_RETRIES); do
+              echo "Attempt $i..."
+              # Use curl to request a WebSocket upgrade and check for 101 status
+              OUTPUT=$(curl -i -s -k \
+                -H "Connection: Upgrade" \
+                -H "Upgrade: websocket" \
+                -H "Host: ${{ secrets.DOMAIN }}" \
+                -H "Origin: https://${{ secrets.DOMAIN }}" \
+                -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
+                -H "Sec-WebSocket-Version: 13" \
+                https://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck 2>&1)
+              
+              if echo "$OUTPUT" | grep -q "101 Switching Protocols"; then
+                echo "WebSocket health check passed successfully!"
+                exit 0
+              fi
+              
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "WebSocket health check failed after $MAX_RETRIES attempts."
+                echo "Last output: $OUTPUT"
+                exit 1
+              fi
+              
+              echo "Retrying in $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+            done

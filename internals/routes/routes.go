@@ -57,6 +57,7 @@ func RegisterRoutes(
 	mux.HandleFunc("GET /api/v1/ws", func(w http.ResponseWriter, r *http.Request) {
 		HandleWebSocketConnection(hub, w, r)
 	})
+	mux.HandleFunc("GET /api/v1/ws/healthcheck", HandleWebSocketHealthCheck)
 
 	// ── Rooms (guest tier — public, no JWT auth middleware) ───────────────────
 	// Token issuance enforces plan limits internally — no auth middleware needed here.
