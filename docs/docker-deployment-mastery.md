@@ -8,6 +8,43 @@ Your operating system kernel has two features that have existed since Linux 3.8 
 
 This matters for you because it means there is no virtual machine here. There is no hypervisor. A container is a process running on your actual kernel, isolated from other processes. When your Go binary runs inside a Docker container, it is literally your binary running on the host kernel, just with a filtered view of the filesystem and network. That is why containers start in milliseconds and consume almost no overhead — they are not emulating hardware.
 
+Here is an illustrative explanation of how Docker utilizes layered filesystems. We can visualize this using the simple concept of stacking clear, transparent sheets to build a complete application image.
+
+### Visual Guide to Docker Layers
+
+#### 1. The Foundation: The Base Image
+
+We start our journey with a core OS. Imagine this as a standard transparent sheet containing the basic necessary libraries (like Debian or Alpine). Currently, it's empty of our specific application.
+
+*(Image 1: The abstract foundation. A mostly empty, light-blue sheet labeled "Base OS (Debian)". It's transparent, waiting for structure.)*
+
+#### 2. Adding Dependencies: The Second Layer
+
+To run our specific application, we need to add runtime environment tools, such as Python or Node.js. Instead of modifying the Base Layer (Image 1), Docker *adds* a second transparent layer right on top.
+
+This new layer contains *only* the new files needed for the Python installation. The original Base OS layer remains pristine and unchanged underneath.
+
+*(Image 2: Building the stack. We stack a semi-transparent orange layer, "App Dependencies (Python)," directly on top of the blue Base OS layer (from Image 1).)*
+
+#### 3. Adding Your Code: The Application Layer
+
+Now we must add our actual application code (the unique business logic). This is a third layer—perhaps a green one—that contains our specific `app.py` script and related configuration files.
+
+We stack this "Application Code" layer on top of the Python dependency layer. When you look down through the stack, you see the complete application structure: **[Base OS + Python + My Code]**.
+
+*(Image 3: The complete Image stack. We have added a third, green translucent layer, "Application Code," on top of the orange dependency layer. This creates a functional 3-layer stack.)*
+
+#### 4. The Final Structure: Running the Container
+
+The previous images showed how we build a static Docker **Image**. But what happens when we *run* the container?
+
+Image 4 is crucial for efficiency and portability.
+
+* **The Image Layers (Read-Only):** The stack we just built (Base OS + Dependencies + Code) is frozen and becomes **Read-Only**. (Notice the "LOCK" icon in the illustration). These layers can be shared across many simultaneous containers and never change. This is what makes Docker *portable*.
+* **The Container Layer (Writable):** When the application runs, it needs to write temporary files, process logs, or receive uploads. Docker adds a *thin*, vibrant, **Writable Container Layer** on the very top. This is the only place where data changes.
+
+If this container is deleted, only the temporary Writable layer (Image 4, top) is destroyed. The underlying blue, orange, and green Image layers (Image 3, preserved below) remain intact, ready to launch a new, fresh container instantly.
+
 The portable filesystem format Docker adds on top is called a **layer**. Every instruction in a Dockerfile creates a read-only filesystem snapshot called a layer. Those layers are stacked. When a container runs, Docker adds one final writable layer on top of all the read-only layers. This stack is what you see as the container's filesystem. When a container is deleted, only the writable top layer is deleted. The read-only image layers stay on disk and are shared between every container running from the same image. This is why pulling the same base image for ten services does not waste ten times the disk — the layers are content-addressed by SHA256 hash and stored once.
 
 The content-addressing is also what makes the build cache work. When Docker builds an image, it hashes the instruction and its inputs. If the hash matches a layer already on disk, it reuses it. This is why `COPY go.mod go.sum ./` followed by `RUN go mod download` is the canonical Go Dockerfile pattern — go.mod and go.sum change far less frequently than your source code, so the dependency download layer gets cached and skipped on every rebuild where you only changed application code. If you instead wrote `COPY . .` before `go mod download`, every source change invalidates the cache for the download step and you wait for the full download every time.

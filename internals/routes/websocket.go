@@ -17,6 +17,19 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
+func HandleWebSocketHealthCheck(w http.ResponseWriter, r *http.Request) {
+	opts := websocket.AcceptOptions{
+		OriginPatterns: []string{"*"},
+	}
+	conn, err := websocket.Accept(w, r, &opts)
+	if err != nil {
+		logger.App.Printf("[WEBSOCKET-HEALTH] error=accept_failed remote=%s err=%v", r.RemoteAddr, err)
+		return
+	}
+	// Upgrade successful, we can immediately close it.
+	conn.Close(websocket.StatusNormalClosure, "healthcheck complete")
+}
+
 func HandleWebSocketConnection(hub *realtime.Hub, w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get(middleware.CtxAuthorization)
 	accessToken := ""

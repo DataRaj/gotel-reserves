@@ -1,15 +1,15 @@
 [Unit]
-Description=Airstage API Server
-After=network.target redis.service
-Requires=redis.service
+Description=Recallo API Server
+After=network.target postgres.service
+Requires=postgres.service
 
 [Service]
 Type=simple
 User=deploy
 Group=deploy
-WorkingDirectory=/opt/airstage
-EnvironmentFile=/opt/airstage/.env
-ExecStart=/opt/airstage/bin/airstage
+WorkingDirectory=/opt/recallo
+EnvironmentFile=/opt/recallo/.env
+ExecStart=/opt/recallo/bin/recallo
 Restart=always
 RestartSec=5s
 StandardOutput=journal
