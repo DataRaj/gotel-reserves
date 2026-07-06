@@ -46,13 +46,18 @@ jobs:
             export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
             cd /opt/recallo
             chmod +x /opt/recallo/bin/recallo
-            # Attempt to restart existing PMGo process; if not present, start a new instance
-            pmgo restart recallo-api || pmgo start /opt/recallo/bin/recallo recallo-api
-            pmgo save
-            sleep 3
-            # Verify process is running under PMGo
-            pmgo list | grep -q "recallo-api" || (pmgo logs recallo-api && exit 1)
 
+            # Puraani instance udaao agar chal rahi hai toh (bina crash kiye)
+            pmgo stop recallo-api || true
+            pmgo delete recallo-api || true
+
+            # Nayi instance fresh start karo direct config dir se taaki .env utha sake
+            pmgo start /opt/recallo/bin/recallo recallo-api
+            pmgo save
+
+            sleep 3
+            # Simple list check karo bina 'logs' wali faltu command ke
+            pmgo list
       - name: Post-deployment HTTP health check
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -63,7 +68,7 @@ jobs:
             echo "Performing HTTP health check against https://${{ secrets.DOMAIN }}/api/v1/healthcheck..."
             curl -f --retry 5 --retry-delay 3 --retry-all-errors https://${{ secrets.DOMAIN }}/api/v1/healthcheck
             echo "HTTP health check passed successfully!"
-            
+
             echo "Performing WebSocket health check against wss://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck..."
             MAX_RETRIES=5
             RETRY_DELAY=3
@@ -78,18 +83,18 @@ jobs:
                 -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
                 -H "Sec-WebSocket-Version: 13" \
                 https://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck 2>&1)
-              
+
               if echo "$OUTPUT" | grep -q "101 Switching Protocols"; then
                 echo "WebSocket health check passed successfully!"
                 exit 0
               fi
-              
+
               if [ $i -eq $MAX_RETRIES ]; then
                 echo "WebSocket health check failed after $MAX_RETRIES attempts."
                 echo "Last output: $OUTPUT"
                 exit 1
               fi
-              
+
               echo "Retrying in $RETRY_DELAY seconds..."
               sleep $RETRY_DELAY
             done
