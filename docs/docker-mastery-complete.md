@@ -38,10 +38,10 @@ MIND MAP — The Container Stack
 ## Dockerfile — Every Instruction, What It Actually Does
 
 ```dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 ```
 
-`FROM` sets the base image. `AS builder` names this stage — you reference it later in `COPY --from=builder`. The base image is pulled from a registry (Docker Hub by default) on first use, cached locally forever after. `golang:1.23-alpine` is `golang:1.23` repackaged on Alpine Linux (~7MB) instead of Debian (~130MB). The Go toolchain size is similar either way but the OS cruft is absent. The `1.23` tag is mutable — if the maintainer pushes a new image with that tag, a fresh `docker pull golang:1.23-alpine` gets a different image. For reproducible builds, pin to a digest: `golang:1.23-alpine@sha256:abc123...`.
+`FROM` sets the base image. `AS builder` names this stage — you reference it later in `COPY --from=builder`. The base image is pulled from a registry (Docker Hub by default) on first use, cached locally forever after. `golang:1.26-alpine` is `golang:1.23` repackaged on Alpine Linux (~7MB) instead of Debian (~130MB). The Go toolchain size is similar either way but the OS cruft is absent. The `1.23` tag is mutable — if the maintainer pushes a new image with that tag, a fresh `docker pull golang:1.23-alpine` gets a different image. For reproducible builds, pin to a digest: `golang:1.23-alpine@sha256:abc123...`.
 
 ```dockerfile
 WORKDIR /app
@@ -115,7 +115,7 @@ This is not about what ends up in the image — `.dockerignore` affects what is 
 ## ARG vs ENV — Build-Time vs Runtime
 
 ```dockerfile
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.26
 FROM golang:${GO_VERSION}-alpine AS builder
 
 ARG BUILD_SHA
@@ -145,12 +145,12 @@ Shown above. Builder has the full toolchain. Runtime has only the binary. Used e
 
 **Pattern 2: Test Stage**
 ```dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN go build -o /server ./cmd/api
 
-FROM golang:1.23-alpine AS test
+FROM golang:1.26-alpine AS test
 WORKDIR /app
 COPY . .
 RUN go test ./... -v -race
@@ -171,7 +171,7 @@ RUN npm ci
 COPY ui/ .
 RUN npm run build
 
-FROM golang:1.23-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -188,7 +188,7 @@ The Go binary serves the frontend's built assets embedded via `//go:embed static
 
 **Pattern 4: Development Stage with Hot Reload**
 ```dockerfile
-FROM golang:1.23-alpine AS dev
+FROM golang:1.26-alpine AS dev
 RUN go install github.com/air-verse/air@latest
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -196,7 +196,7 @@ RUN go mod download
 # Source is bind-mounted at runtime, not copied here
 CMD ["air"]
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -474,7 +474,7 @@ MIND MAP — BuildKit Cache Types
 
 ## Docker Registry — The Full Picture
 
-A registry is an HTTP server that stores and serves image layers. Docker Hub is the public default. Every `docker pull golang:1.23-alpine` hits `registry-1.docker.io`.
+A registry is an HTTP server that stores and serves image layers. Docker Hub is the public default. Every `docker pull golang:1.26-alpine` hits `registry-1.docker.io`.
 
 **Self-hosted registry** — `docker run -d -p 5000:5000 --name registry registry:2`. A local registry at `localhost:5000`. Used in air-gapped environments or CI pipelines where you do not want to hit Docker Hub rate limits.
 
