@@ -41,7 +41,7 @@ func main() {
 
 	// ── Auth ──────────────────────────────────────────────────────────────────
 	utils.InitJWT(cfg.JWTSecretKey)
-	handlers.InitOAuth(cfg.GithubClientID, cfg.GithubClientSecret, cfg.GithubOAuthRedirectURL)
+	handlers.InitOAuth(cfg.GithubClientID, cfg.GithubClientSecret, cfg.GithubOAuthRedirectURL, cfg.FrontendURL)
 
 	// ── Database ──────────────────────────────────────────────────────────────
 	if err := db.InitDB(cfg.DatabaseURL, db.DefaultConfig()); err != nil {

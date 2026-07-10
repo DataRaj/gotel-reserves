@@ -101,6 +101,7 @@ type Config struct {
 	GithubClientID         string `env:"GITHUB_CLIENT_ID"          env-default:""`
 	GithubClientSecret     string `env:"GITHUB_CLIENT_SECRET"      env-default:""`
 	GithubOAuthRedirectURL string `env:"GITHUB_OAUTH_REDIRECT_URL" env-default:""`
+	FrontendURL            string `env:"FRONTEND_URL"              env-default:"https://recallo.tech"`
 
 	// LiveKit groups all credentials and endpoint config for the LiveKit SFU.
 	LiveKit LiveKitConfig
@@ -162,6 +163,9 @@ func LoadConfig() *Config {
 	if cfg.GithubOAuthRedirectURL == "" {
 		log.Fatal("[config] GITHUB_OAUTH_REDIRECT_URL must not be empty")
 	}
+	if cfg.FrontendURL == "" {
+		log.Fatal("[config] FRONTEND_URL must not be empty")
+	}
 
 	// ── Required: LiveKit ─────────────────────────────────────────────────────
 	// All four LiveKit values are required: missing any one causes broken token
@@ -197,10 +201,11 @@ func LoadConfig() *Config {
 	}
 
 	log.Printf(
-		"[config] loaded env=%s addr=%s livekit_host=%s guest_max_participants=%d guest_session_mins=%d guest_video=%s",
+		"[config] loaded env=%s addr=%s livekit_host=%s frontend_url=%s guest_max_participants=%d guest_session_mins=%d guest_video=%s",
 		cfg.Env,
 		cfg.Address,
 		cfg.LiveKit.Host,
+		cfg.FrontendURL,
 		cfg.GuestTier.MaxParticipants,
 		cfg.GuestTier.SessionDurationMins,
 		cfg.GuestTier.MaxVideoQuality,
