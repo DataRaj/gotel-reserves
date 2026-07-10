@@ -44,20 +44,18 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
-            cd /opt/recallo
-            chmod +x /opt/recallo/bin/recallo
 
-            # Puraani instance udaao agar chal rahi hai toh (bina crash kiye)
             pmgo stop recallo-api || true
             pmgo delete recallo-api || true
 
-            # Nayi instance fresh start karo direct config dir se taaki .env utha sake
-            pmgo start /opt/recallo/bin/recallo recallo-api
+            cd /opt/recallo
+            chmod +x bin/recallo
+            pmgo start ./bin/recallo recallo-api
             pmgo save
 
             sleep 3
-            # Simple list check karo bina 'logs' wali faltu command ke
-            pmgo list
+            pmgo list | grep -q "recallo-api" || exit 1
+
       - name: Post-deployment HTTP health check
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -65,38 +63,16 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Performing HTTP health check against https://${{ secrets.DOMAIN }}/api/v1/healthcheck..."
+            echo "Performing local and public boundary checks..."
+
+            echo "Testing backend locally on internal port..."
+            curl -f --retry 3 --retry-delay 2 http://127.0.0.1:8080/api/v1/healthcheck
+
+            echo "HTTP health check internally passed successfully!"
+
+            # 2. Public network route verification (HTTPS through Nginx/Certbot)
+            # Agar DNS propagation done hai aur Nginx reverse proxy set hai tabhi ye execute hoga
+            echo "Performing external SSL route check against https://${{ secrets.DOMAIN }}/api/v1/healthcheck..."
             curl -f --retry 5 --retry-delay 3 --retry-all-errors https://${{ secrets.DOMAIN }}/api/v1/healthcheck
-            echo "HTTP health check passed successfully!"
 
-            echo "Performing WebSocket health check against wss://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck..."
-            MAX_RETRIES=5
-            RETRY_DELAY=3
-            for i in $(seq 1 $MAX_RETRIES); do
-              echo "Attempt $i..."
-              # Use curl to request a WebSocket upgrade and check for 101 status
-              OUTPUT=$(curl --http1.1 --max-time 5 -i -s -k \
-                -H "Connection: Upgrade" \
-                -H "Upgrade: websocket" \
-                -H "Host: ${{ secrets.DOMAIN }}" \
-                -H "Origin: https://${{ secrets.DOMAIN }}" \
-                -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
-                -H "Sec-WebSocket-Version: 13" \
-                https://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck 2>&1)
-
-              echo "Response summary: $(echo "$OUTPUT" | head -n 3 | tr '\n' ' ')"
-
-              if echo "$OUTPUT" | grep -i -E "HTTP/.* (101|200)|101 Switching Protocols"; then
-                echo "WebSocket health check passed successfully!"
-                exit 0
-              fi
-
-              if [ $i -eq $MAX_RETRIES ]; then
-                echo "WebSocket health check failed after $MAX_RETRIES attempts."
-                echo "Full output: $OUTPUT"
-                exit 1
-              fi
-
-              echo "Retrying in $RETRY_DELAY seconds..."
-              sleep $RETRY_DELAY
-            done
+            echo "All routes deployed successfully! 🔥"

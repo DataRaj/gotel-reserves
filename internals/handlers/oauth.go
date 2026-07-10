@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+
 	// "os"
 	"strconv"
 	"time"
@@ -20,11 +21,12 @@ import (
 
 var (
 	githubOAuthConfig *oauth2.Config
-	frontendURL       = "http://localhost:3000"
+	frontendURL       = "https://recallo.tech"
 )
 
 // InitOAuth initializes the GitHub OAuth configuration
-func InitOAuth(clientID, clientSecret, redirectURL string) {
+func InitOAuth(clientID, clientSecret, redirectURL string, frontendURL string) {
+	frontendURL = frontendURL
 	githubOAuthConfig = &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -38,7 +40,7 @@ func generateStateOauthCookie(w http.ResponseWriter) string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	state := base64.URLEncoding.EncodeToString(b)
-	
+
 	cookie := http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -48,7 +50,7 @@ func generateStateOauthCookie(w http.ResponseWriter) string {
 		SameSite: http.SameSiteLaxMode, // Adjust to Strict in production over HTTPS
 	}
 	http.SetCookie(w, &cookie)
-	
+
 	return state
 }
 
