@@ -75,7 +75,7 @@ jobs:
             for i in $(seq 1 $MAX_RETRIES); do
               echo "Attempt $i..."
               # Use curl to request a WebSocket upgrade and check for 101 status
-              OUTPUT=$(curl -i -s -k \
+              OUTPUT=$(curl --http1.1 -i -s -k \
                 -H "Connection: Upgrade" \
                 -H "Upgrade: websocket" \
                 -H "Host: ${{ secrets.DOMAIN }}" \
