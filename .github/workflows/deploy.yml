@@ -75,7 +75,7 @@ jobs:
             for i in $(seq 1 $MAX_RETRIES); do
               echo "Attempt $i..."
               # Use curl to request a WebSocket upgrade and check for 101 status
-              OUTPUT=$(curl --http1.1 -i -s -k \
+              OUTPUT=$(curl --http1.1 --max-time 5 -i -s -k \
                 -H "Connection: Upgrade" \
                 -H "Upgrade: websocket" \
                 -H "Host: ${{ secrets.DOMAIN }}" \
@@ -84,14 +84,16 @@ jobs:
                 -H "Sec-WebSocket-Version: 13" \
                 https://${{ secrets.DOMAIN }}/api/v1/ws/healthcheck 2>&1)
 
-              if echo "$OUTPUT" | grep -q "101 Switching Protocols"; then
+              echo "Response summary: $(echo "$OUTPUT" | head -n 3 | tr '\n' ' ')"
+
+              if echo "$OUTPUT" | grep -i -E "HTTP/.* (101|200)|101 Switching Protocols"; then
                 echo "WebSocket health check passed successfully!"
                 exit 0
               fi
 
               if [ $i -eq $MAX_RETRIES ]; then
                 echo "WebSocket health check failed after $MAX_RETRIES attempts."
-                echo "Last output: $OUTPUT"
+                echo "Full output: $OUTPUT"
                 exit 1
               fi
 

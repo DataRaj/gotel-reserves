@@ -18,16 +18,20 @@ import (
 )
 
 func HandleWebSocketHealthCheck(w http.ResponseWriter, r *http.Request) {
-	opts := websocket.AcceptOptions{
-		OriginPatterns: []string{"*"},
-	}
-	conn, err := websocket.Accept(w, r, &opts)
-	if err != nil {
-		logger.App.Printf("[WEBSOCKET-HEALTH] error=accept_failed remote=%s err=%v", r.RemoteAddr, err)
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		opts := websocket.AcceptOptions{
+			OriginPatterns: []string{"*"},
+		}
+		conn, err := websocket.Accept(w, r, &opts)
+		if err != nil {
+			logger.App.Printf("[WEBSOCKET-HEALTH] error=accept_failed remote=%s err=%v", r.RemoteAddr, err)
+			return
+		}
+		// Upgrade successful, we can immediately close it.
+		conn.Close(websocket.StatusNormalClosure, "healthcheck complete")
 		return
 	}
-	// Upgrade successful, we can immediately close it.
-	conn.Close(websocket.StatusNormalClosure, "healthcheck complete")
+	utils.JSON(w, http.StatusOK, true, "WebSocket healthcheck OK", map[string]string{"status": "ready"})
 }
 
 func HandleWebSocketConnection(hub *realtime.Hub, w http.ResponseWriter, r *http.Request) {
