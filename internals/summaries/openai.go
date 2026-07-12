@@ -1,24 +1,24 @@
 // Package summaries — openai.go
 //
-// Raw net/http OpenAI client. No SDK dependency.
+// Raw net/http Grok (xAI) client. No SDK dependency.
+// The xAI API is OpenAI-compatible: same request envelope, same response
+// shape, same Structured Outputs (json_schema / strict mode) contract.
+//
+// Endpoint: POST https://api.x.ai/v1/chat/completions
 //
 // Structured Outputs contract:
-//   POST https://api.openai.com/v1/chat/completions
 //   response_format.type = "json_schema"
 //   response_format.json_schema = { strict: true, schema: <SummaryOutput schema> }
-//
-// This guarantees the model returns valid JSON matching SummaryOutput exactly —
-// no fragile text parsing, no unmarshalling surprises.
 //
 // Chunking (map-reduce):
 //   Transcripts that exceed maxChunkRunes are split into overlapping windows.
 //   Each chunk produces a partial SummaryOutput. A final reduce pass merges
-//   all partials into a single SummaryOutput using a second LLM call so the
+//   all partials into a single SummaryOutput via a second LLM call so the
 //   output is coherent, not a concatenated list.
 //
 // Token budget:
-//   gpt-4o-mini context window = 128k tokens ≈ 512k chars (rough).
-//   maxChunkRunes = 80_000 chars (≈20k tokens, safe margin with prompt overhead).
+//   grok-3-mini context window = 131k tokens ≈ 524k chars (rough).
+//   maxChunkRunes = 80_000 chars (safe margin with prompt overhead).
 //   overlap = 500 chars to avoid cutting sentences mid-thought.
 package summaries
 
@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	openAIChatURL = "https://api.openai.com/v1/chat/completions"
+	grokChatURL = "https://api.x.ai/v1/chat/completions"
 
-	// Chunking thresholds — tuned for gpt-4o-mini 128k context.
+	// Chunking thresholds — tuned for grok-3-mini 131k context.
 	maxChunkRunes = 80_000 // chars per chunk sent to the model
 	chunkOverlap  = 500    // trailing chars carried into next chunk
 )
@@ -53,7 +53,7 @@ type ActionItem struct {
 	Deadline string `json:"deadline"` // ISO date or natural language, "" if none
 }
 
-// SummaryOutput is the canonical structured response from OpenAI.
+// SummaryOutput is the canonical structured response from Grok.
 // json tags drive both the JSON schema declaration and unmarshalling.
 type SummaryOutput struct {
 	ExecutiveSummary string       `json:"executive_summary"`
@@ -63,11 +63,11 @@ type SummaryOutput struct {
 	DiscussionTags   []string     `json:"discussion_tags"`
 }
 
-// ── JSON schema declaration sent to OpenAI (Structured Outputs) ───────────────
+// ── JSON schema declaration sent to Grok (Structured Outputs) ─────────────
 
 // summaryOutputSchema is the JSON Schema object for SummaryOutput.
 // Declared as a raw constant — cheaper than building it with reflection at runtime.
-// schema must satisfy OpenAI strict mode: no "additionalProperties", all fields required.
+// schema must satisfy strict mode: no "additionalProperties", all fields required.
 var summaryOutputSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
@@ -93,15 +93,15 @@ var summaryOutputSchema = map[string]any{
 	"additionalProperties": false,
 }
 
-// ── openaiClient ──────────────────────────────────────────────────────────────
+// ── grokClient ────────────────────────────────────────────────────────────────
 
-type openaiClient struct {
+type grokClient struct {
 	httpClient *http.Client
-	cfg        configs.OpenAIConfig
+	cfg        configs.GrokConfig
 }
 
-func newOpenAIClient(cfg configs.OpenAIConfig) *openaiClient {
-	return &openaiClient{
+func newGrokClient(cfg configs.GrokConfig) *grokClient {
+	return &grokClient{
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.TimeoutSec) * time.Second,
 		},
@@ -112,7 +112,7 @@ func newOpenAIClient(cfg configs.OpenAIConfig) *openaiClient {
 // Summarize is the top-level entry point.
 // If transcriptText fits within maxChunkRunes it calls summarizeChunk once.
 // If it exceeds the threshold it runs the map-reduce pipeline.
-func (c *openaiClient) Summarize(ctx context.Context, systemPrompt, transcriptText string) (*SummaryOutput, error) {
+func (c *grokClient) Summarize(ctx context.Context, systemPrompt, transcriptText string) (*SummaryOutput, error) {
 	runes := []rune(transcriptText)
 	if len(runes) <= maxChunkRunes {
 		return c.summarizeChunk(ctx, systemPrompt, transcriptText)
@@ -122,7 +122,7 @@ func (c *openaiClient) Summarize(ctx context.Context, systemPrompt, transcriptTe
 
 // mapReduce splits the transcript into overlapping chunks, summarises each,
 // then runs a reduce call that merges all partial outputs into one coherent result.
-func (c *openaiClient) mapReduce(ctx context.Context, systemPrompt string, runes []rune) (*SummaryOutput, error) {
+func (c *grokClient) mapReduce(ctx context.Context, systemPrompt string, runes []rune) (*SummaryOutput, error) {
 	chunks := splitIntoChunks(runes, maxChunkRunes, chunkOverlap)
 	logger.App.Printf("[summaries] map-reduce: %d chunks for %d runes", len(chunks), len(runes))
 
@@ -131,7 +131,7 @@ func (c *openaiClient) mapReduce(ctx context.Context, systemPrompt string, runes
 		partial, err := c.summarizeChunk(ctx, systemPrompt,
 			fmt.Sprintf("[Chunk %d/%d]\n%s", i+1, len(chunks), chunk))
 		if err != nil {
-			return nil, fmt.Errorf("openai.mapReduce chunk %d: %w", i, err)
+			return nil, fmt.Errorf("grok.mapReduce chunk %d: %w", i, err)
 		}
 		partials = append(partials, *partial)
 	}
@@ -140,12 +140,10 @@ func (c *openaiClient) mapReduce(ctx context.Context, systemPrompt string, runes
 }
 
 // reduce merges partial SummaryOutputs into one final summary via a second LLM call.
-// The model receives all partials serialised as JSON and is asked to deduplicate
-// and synthesise them into a single coherent SummaryOutput.
-func (c *openaiClient) reduce(ctx context.Context, partials []SummaryOutput) (*SummaryOutput, error) {
+func (c *grokClient) reduce(ctx context.Context, partials []SummaryOutput) (*SummaryOutput, error) {
 	partialsJSON, err := json.MarshalIndent(partials, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("openai.reduce: marshal partials: %w", err)
+		return nil, fmt.Errorf("grok.reduce: marshal partials: %w", err)
 	}
 
 	reduceSystem := `You are a meeting summariser assistant performing a merge step.
@@ -157,14 +155,14 @@ Return valid JSON matching the schema exactly.`
 	return c.chat(ctx, reduceSystem, reduceUser)
 }
 
-// summarizeChunk calls the OpenAI chat API for a single text chunk.
-func (c *openaiClient) summarizeChunk(ctx context.Context, systemPrompt, text string) (*SummaryOutput, error) {
+// summarizeChunk calls the Grok chat API for a single text chunk.
+func (c *grokClient) summarizeChunk(ctx context.Context, systemPrompt, text string) (*SummaryOutput, error) {
 	userMsg := fmt.Sprintf("Meeting transcript:\n\n%s", text)
 	return c.chat(ctx, systemPrompt, userMsg)
 }
 
 // chat is the lowest-level call: builds the request, sends it, parses the response.
-func (c *openaiClient) chat(ctx context.Context, systemPrompt, userMsg string) (*SummaryOutput, error) {
+func (c *grokClient) chat(ctx context.Context, systemPrompt, userMsg string) (*SummaryOutput, error) {
 	reqBody := map[string]any{
 		"model": c.cfg.Model,
 		"messages": []map[string]string{
@@ -185,35 +183,35 @@ func (c *openaiClient) chat(ctx context.Context, systemPrompt, userMsg string) (
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("openai.chat: marshal request: %w", err)
+		return nil, fmt.Errorf("grok.chat: marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAIChatURL, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, grokChatURL, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("openai.chat: build request: %w", err)
+		return nil, fmt.Errorf("grok.chat: build request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("openai.chat: http: %w", err)
+		return nil, fmt.Errorf("grok.chat: http: %w", err)
 	}
 	defer resp.Body.Close()
 
 	rawBody, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20)) // 4 MB cap
 	if err != nil {
-		return nil, fmt.Errorf("openai.chat: read body: %w", err)
+		return nil, fmt.Errorf("grok.chat: read body: %w", err)
 	}
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, &OpenAIRateLimitError{RetryAfter: openaiRetryAfter(resp)}
+		return nil, &GrokRateLimitError{RetryAfter: grokRetryAfter(resp)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("openai.chat: status=%d body=%s", resp.StatusCode, truncate(rawBody, 512))
+		return nil, fmt.Errorf("grok.chat: status=%d body=%s", resp.StatusCode, truncate(rawBody, 512))
 	}
 
-	// Parse OpenAI chat completion envelope.
+	// Parse Grok chat completion envelope (OpenAI-compatible format).
 	var envelope struct {
 		Choices []struct {
 			Message struct {
@@ -223,21 +221,20 @@ func (c *openaiClient) chat(ctx context.Context, systemPrompt, userMsg string) (
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(rawBody, &envelope); err != nil {
-		return nil, fmt.Errorf("openai.chat: unmarshal envelope: %w", err)
+		return nil, fmt.Errorf("grok.chat: unmarshal envelope: %w", err)
 	}
 	if len(envelope.Choices) == 0 {
-		return nil, fmt.Errorf("openai.chat: no choices in response")
+		return nil, fmt.Errorf("grok.chat: no choices in response")
 	}
 
 	choice := envelope.Choices[0]
 	if choice.FinishReason == "length" {
-		// Token budget exceeded mid-response — partial JSON, not safe to parse.
-		return nil, fmt.Errorf("openai.chat: finish_reason=length — increase max_tokens or reduce chunk size")
+		return nil, fmt.Errorf("grok.chat: finish_reason=length — increase max_tokens or reduce chunk size")
 	}
 
 	var out SummaryOutput
 	if err := json.Unmarshal([]byte(choice.Message.Content), &out); err != nil {
-		return nil, fmt.Errorf("openai.chat: unmarshal SummaryOutput: content=%s err=%w",
+		return nil, fmt.Errorf("grok.chat: unmarshal SummaryOutput: content=%s err=%w",
 			truncate([]byte(choice.Message.Content), 256), err)
 	}
 
@@ -269,26 +266,26 @@ func splitIntoChunks(runes []rune, maxSize, overlap int) []string {
 
 // ── Sentinel errors ───────────────────────────────────────────────────────────
 
-// OpenAIRateLimitError signals a 429 from the OpenAI API.
+// GrokRateLimitError signals a 429 from the Grok API.
 // The worker pool's backoff absorbs it; the RetryAfter hint is logged.
-type OpenAIRateLimitError struct {
+type GrokRateLimitError struct {
 	RetryAfter time.Duration
 }
 
-func (e *OpenAIRateLimitError) Error() string {
-	return fmt.Sprintf("openai: rate limited, retry after %s", e.RetryAfter)
+func (e *GrokRateLimitError) Error() string {
+	return fmt.Sprintf("grok: rate limited, retry after %s", e.RetryAfter)
 }
 
-// IsRateLimit reports whether err is an OpenAI 429.
+// IsRateLimit reports whether err is a Grok 429.
 func IsRateLimit(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, ok := err.(*OpenAIRateLimitError) //nolint:errorlint
+	_, ok := err.(*GrokRateLimitError) //nolint:errorlint
 	return ok
 }
 
-func openaiRetryAfter(resp *http.Response) time.Duration {
+func grokRetryAfter(resp *http.Response) time.Duration {
 	val := resp.Header.Get("Retry-After")
 	if val == "" {
 		return 60 * time.Second

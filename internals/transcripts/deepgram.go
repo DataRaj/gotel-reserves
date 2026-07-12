@@ -3,10 +3,11 @@
 // Deepgram pre-recorded (batch) REST API client.
 //
 // API contract used:
-//   POST https://api.deepgram.com/v1/listen
-//   Body: {"url": "<presigned-spaces-url>"}
-//   Query params: model, language, smart_format, punctuate, diarize,
-//                 utterances, words (word-level timestamps)
+//
+//	POST https://api.deepgram.com/v1/listen
+//	Body: {"url": "<presigned-spaces-url>"}
+//	Query params: model, language, smart_format, punctuate, diarize,
+//	              utterances, words (word-level timestamps)
 //
 // The client never downloads the file itself. It hands Deepgram a
 // short-lived presigned GET URL; Deepgram fetches and processes the media
@@ -37,13 +38,13 @@ const deepgramListenURL = "https://api.deepgram.com/v1/listen"
 
 // DeepgramResponse is the top-level response envelope from /v1/listen.
 type DeepgramResponse struct {
-	Metadata DeepgramMetadata  `json:"metadata"`
-	Results  DeepgramResults   `json:"results"`
+	Metadata DeepgramMetadata `json:"metadata"`
+	Results  DeepgramResults  `json:"results"`
 }
 
 type DeepgramMetadata struct {
 	RequestID string  `json:"request_id"`
-	Duration  float64 `json:"duration"`  // total audio duration in seconds
+	Duration  float64 `json:"duration"` // total audio duration in seconds
 	ModelInfo struct {
 		Name string `json:"name"`
 	} `json:"model_info"`
@@ -71,18 +72,18 @@ type WordResult struct {
 	Start       float64 `json:"start"`
 	End         float64 `json:"end"`
 	Confidence  float64 `json:"confidence"`
-	Speaker     int     `json:"speaker,omitempty"`     // diarization speaker index
+	Speaker     int     `json:"speaker,omitempty"` // diarization speaker index
 	SpeakerConf float64 `json:"speaker_confidence,omitempty"`
 }
 
 // ParsedTranscript is the distilled output handed back to the service layer.
 type ParsedTranscript struct {
-	Text       string
-	Words      []WordResult
-	Confidence float64
+	Text        string
+	Words       []WordResult
+	Confidence  float64
 	DurationSec int
-	Model      string
-	Language   string
+	Model       string
+	Language    string
 }
 
 // ── deepgramClient ────────────────────────────────────────────────────────────
@@ -153,11 +154,11 @@ func (c *deepgramClient) buildURL() string {
 	q := u.Query()
 	q.Set("model", c.cfg.Model)
 	q.Set("language", c.cfg.Language)
-	q.Set("smart_format", "true")  // auto-applies punctuation, numerals, paragraphs
+	q.Set("smart_format", "true") // auto-applies punctuation, numerals, paragraphs
 	q.Set("punctuate", "true")
-	q.Set("diarize", "true")       // speaker labels on word-level timestamps
-	q.Set("utterances", "true")    // utterance segmentation
-	q.Set("words", "true")         // word-level timestamps → stored in words_json
+	q.Set("diarize", "true")    // speaker labels on word-level timestamps
+	q.Set("utterances", "true") // utterance segmentation
+	q.Set("words", "true")      // word-level timestamps → stored in words_json
 	u.RawQuery = q.Encode()
 	return u.String()
 }

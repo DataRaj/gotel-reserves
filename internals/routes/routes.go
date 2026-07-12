@@ -7,6 +7,8 @@ import (
 	"recallo/internals/middleware"
 	"recallo/internals/realtime"
 	"recallo/internals/rooms"
+	"recallo/internals/summaries"
+	"recallo/internals/transcripts"
 	"recallo/internals/webhooks"
 )
 
@@ -20,6 +22,8 @@ func RegisterRoutes(
 	hub *realtime.Hub,
 	roomsHandler *rooms.Handler,
 	webhookHandler *webhooks.Handler,
+	transcriptsHandler *transcripts.Handler,
+	summariesHandler *summaries.Handler,
 ) http.Handler {
 	mux := http.NewServeMux()
 
@@ -63,6 +67,15 @@ func RegisterRoutes(
 	// Token issuance enforces plan limits internally — no auth middleware needed here.
 	// Guest identity is carried in the request body/query params, not in a session cookie.
 	roomsHandler.RegisterRoutes(mux)
+
+	// ── Transcripts ───────────────────────────────────────────────────────────
+	mux.HandleFunc("GET /api/v1/rooms/{room_name}/transcript", transcriptsHandler.HandleGetByRoomName)
+	mux.HandleFunc("GET /api/v1/transcripts/{id}", transcriptsHandler.HandleGetByID)
+
+	// ── Summaries ─────────────────────────────────────────────────────────────
+	mux.HandleFunc("GET /api/v1/rooms/{room_name}/summary", summariesHandler.HandleGetByRoomName)
+	mux.HandleFunc("GET /api/v1/summaries/by-transcript/{id}", summariesHandler.HandleGetByTranscriptID)
+	mux.HandleFunc("GET /api/v1/summaries/{id}", summariesHandler.HandleGetByID)
 
 	// ── LiveKit Webhooks ──────────────────────────────────────────────────────
 	// No rate limiting on this endpoint — LiveKit retry behaviour needs reliable delivery.

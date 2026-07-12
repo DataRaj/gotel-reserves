@@ -86,7 +86,7 @@ func main() {
 	// Transcript service: post-session Deepgram batch pipeline.
 	// Presigns DO Spaces GET URLs; Deepgram fetches the file directly.
 	transcriptSvc := transcripts.NewService(db.DB, cfg.Deepgram, cfg.Spaces, jobClient)
-	summarySvc := summaries.NewService(db.DB, cfg.OpenAI)
+	summarySvc := summaries.NewService(db.DB, cfg.Grok)
 
 	workerPool := jobs.NewWorkerPool(db.DB, rdb)
 	workerPool.Register(jobs.TypeTranscribe, transcriptSvc.Handle)
@@ -109,7 +109,9 @@ func main() {
 	go enforcer.Run(enforcerCtx)
 
 	// ── Routes ────────────────────────────────────────────────────────────────
-	routeHandler := routes.RegisterRoutes(hub, roomsHandler, webhookHandler)
+	transcriptsHandler := transcripts.NewHandler(db.DB)
+	summariesHandler := summaries.NewHandler(db.DB)
+	routeHandler := routes.RegisterRoutes(hub, roomsHandler, webhookHandler, transcriptsHandler, summariesHandler)
 
 	// Apply logging middleware on top of the route handler.
 	handler := middleware.Loggingmiddleware(routeHandler)
@@ -149,6 +151,11 @@ func main() {
 		logger.App.Printf("  GET    /api/v1/rooms/{id}/token       [guest - token boundary]")
 		logger.App.Printf("  POST   /api/v1/rooms/{id}/extend      [guest - one-time extend]")
 		logger.App.Printf("  POST   /webhooks/livekit              [livekit webhook receiver]")
+		logger.App.Printf("  GET    /api/v1/rooms/{room_name}/transcript  [transcripts]")
+		logger.App.Printf("  GET    /api/v1/transcripts/{id}              [transcripts]")
+		logger.App.Printf("  GET    /api/v1/rooms/{room_name}/summary     [summaries]")
+		logger.App.Printf("  GET    /api/v1/summaries/by-transcript/{id}  [summaries]")
+		logger.App.Printf("  GET    /api/v1/summaries/{id}                [summaries]")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.App.Printf("[server] fatal err=%v", err)

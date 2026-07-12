@@ -5,7 +5,7 @@
 //  1. Decode SummarizePayload (transcript_id, room_livekit_name, category).
 //  2. Fetch transcript text from Postgres.
 //  3. Select system prompt from category.
-//  4. Call OpenAI (chunked map-reduce if transcript exceeds context window).
+//  4. Call Grok (chunked map-reduce if transcript exceeds context window).
 //  5. Atomically persist summaries row in Postgres.
 //
 // Registered in main.go as:
@@ -13,7 +13,7 @@
 //	workerPool.Register(jobs.TypeSummarize, summarySvc.Handle)
 //
 // Error classification:
-//   - *OpenAIRateLimitError → transient (worker pool backs off, ZSET retry).
+//   - *GrokRateLimitError → transient (worker pool backs off, ZSET retry).
 //   - context.Canceled / DeadlineExceeded → transient.
 //   - Malformed payload → return nil (skip, never retryable).
 //   - All others → transient; after 5 attempts worker pool moves to DLQ.
@@ -47,15 +47,17 @@ type transcriptRow struct {
 // Service orchestrates the AI summarisation pipeline.
 // Dependencies injected at construction — no package-level state.
 type Service struct {
-	db     *sql.DB
-	openai *openaiClient
+	db    *sql.DB
+	grok  *grokClient
+	model string
 }
 
 // NewService constructs the summaries Service.
-func NewService(database *sql.DB, cfg configs.OpenAIConfig) *Service {
+func NewService(database *sql.DB, cfg configs.GrokConfig) *Service {
 	return &Service{
-		db:     database,
-		openai: newOpenAIClient(cfg),
+		db:    database,
+		grok:  newGrokClient(cfg),
+		model: cfg.Model,
 	}
 }
 
@@ -94,13 +96,13 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	// 2. Select system prompt from category.
 	systemPrompt := SystemPromptFor(RoomCategory(payload.Category))
 
-	// 3. Call OpenAI (automatically chunks long transcripts).
-	output, err := s.openai.Summarize(ctx, systemPrompt, tr.text)
+	// 3. Call Grok (automatically chunks long transcripts).
+	output, err := s.grok.Summarize(ctx, systemPrompt, tr.text)
 	if err != nil {
 		if IsRateLimit(err) {
-			logger.App.Printf("[summaries] openai rate limited job_id=%s — %v", job.ID, err)
+			logger.App.Printf("[summaries] grok rate limited job_id=%s — %v", job.ID, err)
 		} else {
-			logger.App.Printf("[summaries] openai error job_id=%s err=%v", job.ID, err)
+			logger.App.Printf("[summaries] grok error job_id=%s err=%v", job.ID, err)
 		}
 		return err // worker pool applies exponential backoff
 	}
@@ -168,7 +170,7 @@ func (s *Service) persistSummary(
 		actionItemsJSON,
 		decisionsMadeJSON,
 		discussionTagsJSON,
-		"gpt-4o-mini", // matches cfg.Model at call time; stored for auditing
+		s.model, // stored for auditing which Grok model generated this summary
 		time.Now().UTC(),
 	)
 	if err != nil {
