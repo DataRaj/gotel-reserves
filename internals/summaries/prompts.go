@@ -4,7 +4,7 @@
 //
 // Design: prompts are pure data — no logic, no imports.
 // The service layer calls SystemPromptFor(category) and passes the result
-// directly to the OpenAI client. If a category is unrecognised, the fallback
+// directly to the Grok client. If a category is unrecognised, the fallback
 // business_sync prompt is used — conservative and always safe.
 //
 // Safety guardrails baked into every prompt:

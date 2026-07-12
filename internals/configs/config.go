@@ -82,10 +82,10 @@ type SpacesConfig struct {
 	SecretKey string `env:"SPACES_SECRET_KEY" env-default:""`
 }
 
-type OpenAIConfig struct {
-	APIKey     string `env:"OPENAI_API_KEY" env-default:""`
-	Model      string `env:"OPENAI_MODEL"       env-default:"gpt-4o-mini"`
-	TimeoutSec int    `env:"OPENAI_TIMEOUT_SEC" env-default:"120"`
+type GrokConfig struct {
+	APIKey     string `env:"GROK_API_KEY"      env-default:""`
+	Model      string `env:"GROK_MODEL"        env-default:"grok-3-mini"`
+	TimeoutSec int    `env:"GROK_TIMEOUT_SEC"  env-default:"120"`
 }
 
 // Config is the full application configuration loaded from an .env file.
@@ -115,7 +115,7 @@ type Config struct {
 	// Spaces groups DigitalOcean Spaces credentials for recording storage.
 	Spaces SpacesConfig
 
-	OpenAI OpenAIConfig
+	Grok GrokConfig
 
 	HTTPServer
 }
@@ -196,8 +196,8 @@ func LoadConfig() *Config {
 		)
 	}
 
-	if cfg.OpenAI.APIKey == "" {
-		log.Fatal("[config] OPENAI_API_KEY must not be empty")
+	if cfg.Grok.APIKey == "" {
+		log.Fatal("[config] GROK_API_KEY must not be empty")
 	}
 
 	log.Printf(
