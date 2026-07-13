@@ -25,8 +25,8 @@ var (
 )
 
 // InitOAuth initializes the GitHub OAuth configuration
-func InitOAuth(clientID, clientSecret, redirectURL string, frontendURL string) {
-	frontendURL = frontendURL
+func InitOAuth(clientID, clientSecret, redirectURL string, fURL string) {
+	frontendURL = fURL
 	githubOAuthConfig = &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
