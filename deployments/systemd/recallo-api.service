@@ -1,14 +1,13 @@
 [Unit]
 Description=Recallo API Server
-After=network.target postgres.service
-Requires=postgres.service
+After=network.target
 
 [Service]
 Type=simple
 User=deploy
 Group=deploy
 WorkingDirectory=/opt/recallo
-EnvironmentFile=/opt/recallo/.env
+EnvironmentFile=/opt/recallo/config/dev.env
 ExecStart=/opt/recallo/bin/recallo
 Restart=always
 RestartSec=5s

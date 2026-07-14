@@ -1,6 +1,3 @@
-// Package cache initialises the Redis connection.
-// Uses go-redis/v9. The client is returned explicitly — no global variable.
-// Callers (main.go) pass the *redis.Client to every component that needs it.
 package cache
 
 import (

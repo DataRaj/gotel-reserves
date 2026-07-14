@@ -10,6 +10,9 @@ id deploy &>/dev/null || adduser --disabled-password --gecos "" deploy
 usermod -aG sudo deploy
 [ -d /home/deploy/.ssh ] || rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
 
+# Allow deploy user to restart the service without a password for CI/CD
+echo "deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart recallo-api, /bin/systemctl is-active recallo-api" > /etc/sudoers.d/deploy-recallo
+
 # ── 2. Firewall ────────────────────────────────────────────────────────────────
 ufw allow 22/tcp
 ufw allow 80/tcp
@@ -26,13 +29,13 @@ sed -i 's/^bind .*/bind 127.0.0.1/' "$REDIS_CONF"
 if ! grep -q "^requirepass " "$REDIS_CONF"; then
     REDIS_PASS=$(openssl rand -hex 32)
     echo "requirepass $REDIS_PASS" >> "$REDIS_CONF"
-    echo "[setup] Redis password: $REDIS_PASS  — add to /opt/recallo/.env as REDIS_URL"
+    echo "[setup] Redis password: $REDIS_PASS  — add to /opt/recallo/config/dev.env as REDIS_URL"
 fi
 systemctl enable redis-server
 systemctl restart redis-server
 
 # ── 5. App directories ────────────────────────────────────────────────────────
-mkdir -p /opt/recallo/bin
+mkdir -p /opt/recallo/bin /opt/recallo/config
 chown -R deploy:deploy /opt/recallo
 
 # ── 6. Nginx ──────────────────────────────────────────────────────────────────
@@ -47,15 +50,13 @@ systemctl reload nginx
 # ── 7. TLS ────────────────────────────────────────────────────────────────────
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "ops@$DOMAIN" --redirect
 
-# ── 8. Systemd unit (Optional if not using PMGo) ──────────────────────────────
+# ── 8. Systemd unit ───────────────────────────────────────────────────────────
 cp "$(dirname "$0")/../systemd/recallo-api.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable recallo-api
 
 echo ""
 echo "[setup] Done. Next:"
-echo "  1. SCP your .env to /opt/recallo/.env (owned deploy:deploy, chmod 600)"
-echo "  2. SCP the binary to /opt/recallo/bin/recallo"
-echo "  3. If using PMGo: pmgo start /opt/recallo/bin/recallo recallo-api"
-echo "     If using systemd: systemctl start recallo-api"
-echo "  4. Check logs: pmgo logs recallo-api OR journalctl -u recallo-api -f"
+echo "  1. SCP your environment file to /opt/recallo/config/dev.env"
+echo "  2. GitHub Actions will handle SCPing the binary and restarting the service automatically."
+echo "  3. Check logs: journalctl -u recallo-api -f"
