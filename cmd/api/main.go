@@ -13,6 +13,7 @@ import (
 	"recallo/internals/cache"
 	"recallo/internals/configs"
 	"recallo/internals/handlers"
+	"recallo/internals/insights"
 	"recallo/internals/jobs"
 	livekit "recallo/internals/livekit"
 	"recallo/internals/logger"
@@ -111,7 +112,8 @@ func main() {
 	// ── Routes ────────────────────────────────────────────────────────────────
 	transcriptsHandler := transcripts.NewHandler(db.DB)
 	summariesHandler := summaries.NewHandler(db.DB)
-	routeHandler := routes.RegisterRoutes(hub, roomsHandler, webhookHandler, transcriptsHandler, summariesHandler)
+	insightsHandler := insights.NewHandler(db.DB)
+	routeHandler := routes.RegisterRoutes(hub, roomsHandler, webhookHandler, transcriptsHandler, summariesHandler, insightsHandler)
 
 	// Apply logging middleware on top of the route handler.
 	handler := middleware.Loggingmiddleware(routeHandler)

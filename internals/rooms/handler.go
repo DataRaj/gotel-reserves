@@ -34,6 +34,7 @@ func NewHandler(svc *Service) *Handler {
 //	POST   /api/v1/rooms/{id}/extend        → ExtendGuestSession (guest host only)
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/rooms", h.handleCreateGuestRoom)
+	mux.HandleFunc("GET /api/v1/rooms", h.handleListRooms)
 	mux.HandleFunc("GET /api/v1/rooms/{id}", h.handleGetRoom)
 	mux.HandleFunc("DELETE /api/v1/rooms/{id}", h.handleEndRoom)
 	mux.HandleFunc("GET /api/v1/rooms/{id}/token", h.handleIssueGuestToken)
@@ -76,10 +77,31 @@ func (h *Handler) handleCreateGuestRoom(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusCreated, room)
 }
 
+// handleListRooms — GET /api/v1/rooms?host_guest_id=<uuid>
+//
+// Lists every room created by the given guest host, newest first, enriched with
+// participant count and transcript/summary availability. Powers the meeting history hub.
+// Response 200: []RoomListItem
+func (h *Handler) handleListRooms(w http.ResponseWriter, r *http.Request) {
+	hostGuestID := r.URL.Query().Get("host_guest_id")
+	if strings.TrimSpace(hostGuestID) == "" {
+		writeError(w, http.StatusBadRequest, "host_guest_id query parameter is required")
+		return
+	}
+
+	rooms, err := h.svc.ListRoomsByHost(r.Context(), hostGuestID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, rooms)
+}
+
 // handleGetRoom — GET /api/v1/rooms/{id}
 // Response 200: Room JSON
 func (h *Handler) handleGetRoom(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseRoomID(w, r)
+	id, ok := h.resolveRoomID(w, r)
 	if !ok {
 		return
 	}
@@ -99,7 +121,7 @@ func (h *Handler) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 // Only the host (matching host_guest_id on the room) may end it.
 // Response 204: No Content
 func (h *Handler) handleEndRoom(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseRoomID(w, r)
+	id, ok := h.resolveRoomID(w, r)
 	if !ok {
 		return
 	}
@@ -131,7 +153,7 @@ func (h *Handler) handleEndRoom(w http.ResponseWriter, r *http.Request) {
 // This is the security boundary: plan enforcement, session expiry, and participant
 // cap are all checked here before any token is issued.
 func (h *Handler) handleIssueGuestToken(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseRoomID(w, r)
+	id, ok := h.resolveRoomID(w, r)
 	if !ok {
 		return
 	}
@@ -166,7 +188,7 @@ func (h *Handler) handleIssueGuestToken(w http.ResponseWriter, r *http.Request) 
 // Single-use per room. Returns 409 if already used.
 // Response 200: {"extended": true, "message": "Session extended by 15 minutes"}
 func (h *Handler) handleExtendSession(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseRoomID(w, r)
+	id, ok := h.resolveRoomID(w, r)
 	if !ok {
 		return
 	}
@@ -196,15 +218,28 @@ func (h *Handler) handleExtendSession(w http.ResponseWriter, r *http.Request) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// parseRoomID extracts and validates the {id} path segment.
-func parseRoomID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+// resolveRoomID extracts the {id} path segment and resolves it to a numeric room id.
+//
+// The segment may be either the numeric DB id (e.g. "42") or the LiveKit room name
+// (e.g. "guest-90c54f16"). The client uses the room name as the shareable identifier,
+// so a non-numeric segment is looked up by name rather than rejected with 400.
+func (h *Handler) resolveRoomID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	raw := r.PathValue("id")
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid room id")
+
+	if id, err := strconv.ParseInt(raw, 10, 64); err == nil && id > 0 {
+		return id, true
+	}
+
+	room, err := h.svc.GetRoomByName(r.Context(), raw)
+	if err != nil {
+		if errors.Is(err, ErrRoomNotFound) {
+			writeError(w, http.StatusNotFound, "room not found")
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid room id")
+		}
 		return 0, false
 	}
-	return id, true
+	return room.ID, true
 }
 
 // writeServiceError maps domain sentinel errors to HTTP status codes.

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"recallo/internals/handlers"
+	"recallo/internals/insights"
 	"recallo/internals/middleware"
 	"recallo/internals/realtime"
 	"recallo/internals/rooms"
@@ -24,6 +25,7 @@ func RegisterRoutes(
 	webhookHandler *webhooks.Handler,
 	transcriptsHandler *transcripts.Handler,
 	summariesHandler *summaries.Handler,
+	insightsHandler *insights.Handler,
 ) http.Handler {
 	mux := http.NewServeMux()
 
@@ -76,6 +78,9 @@ func RegisterRoutes(
 	mux.HandleFunc("GET /api/v1/rooms/{room_name}/summary", summariesHandler.HandleGetByRoomName)
 	mux.HandleFunc("GET /api/v1/summaries/by-transcript/{id}", summariesHandler.HandleGetByTranscriptID)
 	mux.HandleFunc("GET /api/v1/summaries/{id}", summariesHandler.HandleGetByID)
+
+	// ── Insights (post-meeting pipeline status; always 200 while processing) ──
+	mux.HandleFunc("GET /api/v1/rooms/{room_name}/insights", insightsHandler.HandleGetByRoomName)
 
 	// ── LiveKit Webhooks ──────────────────────────────────────────────────────
 	// No rate limiting on this endpoint — LiveKit retry behaviour needs reliable delivery.

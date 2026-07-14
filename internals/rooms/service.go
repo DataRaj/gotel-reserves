@@ -22,8 +22,8 @@ import (
 // repository functions in this package (repository.go). Business rules live here;
 // persistence mechanics live there.
 type Service struct {
-	lk        LiveKitService    // interface — not the concrete *livekit.Service type
-	guestCfg  configs.GuestTierConfig
+	lk       LiveKitService // interface — not the concrete *livekit.Service type
+	guestCfg configs.GuestTierConfig
 }
 
 // NewService constructs the rooms Service.
@@ -95,6 +95,30 @@ func (s *Service) GetRoom(ctx context.Context, roomID int64) (*Room, error) {
 		return nil, fmt.Errorf("rooms.Service.GetRoom: %w", err)
 	}
 	return room, nil
+}
+
+// GetRoomByName fetches a room by its LiveKit room name (e.g. "guest-90c54f16").
+// Returns ErrRoomNotFound if not present.
+//
+// The client uses livekit_room_name — not the numeric DB id — as the shareable
+// room identifier in URLs, so lookups by name are a first-class access path.
+func (s *Service) GetRoomByName(ctx context.Context, roomName string) (*Room, error) {
+	room, err := getRoomByLiveKitName(ctx, roomName)
+	if err != nil {
+		return nil, fmt.Errorf("rooms.Service.GetRoomByName: %w", err)
+	}
+	return room, nil
+}
+
+// ListRoomsByHost returns every room created by the given guest host, newest first.
+// Used by the meeting history hub. Each item is enriched with participant count and
+// transcript/summary availability so the UI can render status badges without N+1 calls.
+func (s *Service) ListRoomsByHost(ctx context.Context, hostGuestID string) ([]*RoomListItem, error) {
+	rooms, err := listRoomsByHost(ctx, hostGuestID)
+	if err != nil {
+		return nil, fmt.Errorf("rooms.Service.ListRoomsByHost: %w", err)
+	}
+	return rooms, nil
 }
 
 // IssueGuestToken validates plan constraints and returns a LiveKit JWT for a guest participant.
@@ -359,6 +383,83 @@ var getRoomByID = func(ctx context.Context, id int64) (*Room, error) {
 		return nil, err
 	}
 	return &r, nil
+}
+
+// getRoomByLiveKitName fetches a room by its unique livekit_room_name.
+// Returns ErrRoomNotFound when absent.
+var getRoomByLiveKitName = func(ctx context.Context, name string) (*Room, error) {
+	query := `
+		SELECT id, livekit_room_name, host_guest_id, title, status, tier,
+		       started_at, ended_at, created_at, extend_used
+		FROM rooms
+		WHERE livekit_room_name = $1
+	`
+	var r Room
+	err := db.DB.QueryRowContext(ctx, query, name).Scan(
+		&r.ID,
+		&r.LiveKitRoomName,
+		&r.HostGuestID,
+		&r.Title,
+		&r.Status,
+		&r.Tier,
+		&r.StartedAt,
+		&r.EndedAt,
+		&r.CreatedAt,
+		&r.ExtendUsed,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("rooms: %w", ErrRoomNotFound)
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+// listRoomsByHost returns all rooms for a host guest, newest first, enriched with
+// participant count and transcript/summary availability for the history hub.
+var listRoomsByHost = func(ctx context.Context, hostGuestID string) ([]*RoomListItem, error) {
+	query := `
+		SELECT r.id, r.livekit_room_name, r.host_guest_id, r.title, r.status, r.tier,
+		       r.started_at, r.ended_at, r.created_at, r.extend_used,
+		       COALESCE(r.session_duration_mins, 0),
+		       (SELECT COUNT(*) FROM room_participants rp WHERE rp.room_livekit_name = r.livekit_room_name),
+		       EXISTS(SELECT 1 FROM transcripts t WHERE t.room_livekit_name = r.livekit_room_name),
+		       EXISTS(SELECT 1 FROM summaries s WHERE s.room_livekit_name = r.livekit_room_name)
+		FROM rooms r
+		WHERE r.host_guest_id = $1
+		ORDER BY r.created_at DESC
+	`
+	rows, err := db.DB.QueryContext(ctx, query, hostGuestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]*RoomListItem, 0)
+	for rows.Next() {
+		var it RoomListItem
+		if err := rows.Scan(
+			&it.ID,
+			&it.LiveKitRoomName,
+			&it.HostGuestID,
+			&it.Title,
+			&it.Status,
+			&it.Tier,
+			&it.StartedAt,
+			&it.EndedAt,
+			&it.CreatedAt,
+			&it.ExtendUsed,
+			&it.SessionDurationMins,
+			&it.ParticipantCount,
+			&it.HasTranscript,
+			&it.HasSummary,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &it)
+	}
+	return items, rows.Err()
 }
 
 // markExtensionUsed sets extend_used=true and bumps the effective session duration.
