@@ -50,7 +50,7 @@ type LiveKitService interface {
 // Maps 1:1 with the rooms DB table row.
 type Room struct {
 	ID              int64      `json:"id"`
-	HostGuestID     string     `json:"host_guest_id`      // guest UUID of the room creator
+	HostGuestID     string     `json:"host_guest_id"`     // guest UUID of the room creator
 	LiveKitRoomName string     `json:"livekit_room_name"` // stable LiveKit identifier
 	Title           string     `json:"title"`
 	Status          RoomStatus `json:"status"`
@@ -59,6 +59,26 @@ type Room struct {
 	StartedAt       *time.Time `json:"started_at,omitempty"`
 	EndedAt         *time.Time `json:"ended_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
+}
+
+// RoomListItem is a Room enriched with pipeline/attendance metadata for the
+// meeting history hub. It is returned only by the list endpoint, so the base
+// Room struct (used everywhere else) stays lean.
+type RoomListItem struct {
+	ID                  int64      `json:"id"`
+	HostGuestID         string     `json:"host_guest_id"`
+	LiveKitRoomName     string     `json:"livekit_room_name"`
+	Title               string     `json:"title"`
+	Status              RoomStatus `json:"status"`
+	Tier                RoomTier   `json:"tier"`
+	ExtendUsed          bool       `json:"extend_used"`
+	StartedAt           *time.Time `json:"started_at,omitempty"`
+	EndedAt             *time.Time `json:"ended_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	SessionDurationMins int        `json:"session_duration_mins"`
+	ParticipantCount    int        `json:"participant_count"`
+	HasTranscript       bool       `json:"has_transcript"`
+	HasSummary          bool       `json:"has_summary"`
 }
 
 type RoomStatus string

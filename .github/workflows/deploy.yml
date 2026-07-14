@@ -1,4 +1,4 @@
-name: Production CI/CD Deploy (PMGo)
+name: Production CI/CD Deploy (Systemd)
 
 on:
   push:
@@ -21,10 +21,12 @@ jobs:
       - name: Run unit & integration tests
         run: go test -v ./...
 
-      - name: Build static production binary
+      - name: Build and compress static production binary
         run: |
+          sudo apt-get install -y upx-ucl
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags="-s -w" -trimpath -o bin/recallo ./cmd/api
+          upx --best --lzma bin/recallo
 
       - name: Copy binary to DigitalOcean Droplet
         uses: appleboy/scp-action@v0.1.7
@@ -36,25 +38,22 @@ jobs:
           target: /opt/recallo/bin/
           strip_components: 1
 
-      - name: Reload application process via PMGo
+      - name: Reload application process via Systemd
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DROPLET_IP }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
-
-            pmgo stop recallo-api || true
-            pmgo delete recallo-api || true
-
             cd /opt/recallo
             chmod +x bin/recallo
-            pmgo start ./bin/recallo recallo-api
-            pmgo save
-
+            
+            # Restart via systemd (deploy user needs NOPASSWD sudo access for this command)
+            sudo systemctl restart recallo-api
+            
+            # Verify it stayed up
             sleep 3
-            pmgo list | grep -q "recallo-api" || exit 1
+            systemctl is-active --quiet recallo-api || exit 1
 
       - name: Post-deployment HTTP health check
         uses: appleboy/ssh-action@v1.0.3
