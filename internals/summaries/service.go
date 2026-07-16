@@ -1,22 +1,4 @@
 // Package summaries — service.go
-//
-// Service implements the TypeSummarize job pipeline:
-//
-//  1. Decode SummarizePayload (transcript_id, room_livekit_name, category).
-//  2. Fetch transcript text from Postgres.
-//  3. Select system prompt from category.
-//  4. Call Grok (chunked map-reduce if transcript exceeds context window).
-//  5. Atomically persist summaries row in Postgres.
-//
-// Registered in main.go as:
-//
-//	workerPool.Register(jobs.TypeSummarize, summarySvc.Handle)
-//
-// Error classification:
-//   - *GrokRateLimitError → transient (worker pool backs off, ZSET retry).
-//   - context.Canceled / DeadlineExceeded → transient.
-//   - Malformed payload → return nil (skip, never retryable).
-//   - All others → transient; after 5 attempts worker pool moves to DLQ.
 package summaries
 
 import (

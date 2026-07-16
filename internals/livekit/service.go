@@ -1,14 +1,3 @@
-// Package livekit is the single boundary between the application and the LiveKit
-// SDK. No other package in this module imports livekit SDK types directly.
-//
-// All consumers depend on the LiveKitService interface declared in their own package
-// (Kennedy's rule: interfaces at the consumer, not the provider). This package
-// holds the concrete implementation and the config/constructor only.
-//
-// SDK note: We use the LiveKit protocol Twirp client (github.com/livekit/protocol)
-// directly for room management, avoiding the server-sdk-go package which is intended
-// for SDK clients that join rooms as participants. This keeps our dependency surface
-// minimal and avoids media/WebRTC compilation issues in CI.
 package livekit
 
 import (
