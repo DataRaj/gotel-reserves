@@ -221,6 +221,13 @@ func handleIncomingEvents(hub *realtime.Hub, client *realtime.Client, event real
 		msg.MessageType = messageType
 		msg.CreatedAt = time.Now()
 
+		// For gif messages persist the image URL in content (no dedicated
+		// column) so it survives REST history reads; keep gif_url populated
+		// on the broadcast so clients render the image immediately.
+		if messageType == "gif" && msg.GifURL != "" {
+			msg.Content = msg.GifURL
+		}
+
 		if err := models.CreateMessage(&msg); err != nil {
 			logger.App.Printf("[WEBSOCKET] error=create_message user_id=%d err=%v", client.User.ID, err)
 			hub.SendError(client.User.ID, "failed to save message")

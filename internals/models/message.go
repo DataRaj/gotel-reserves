@@ -14,6 +14,11 @@ type Message struct {
 	MessageType string `json:"message_type"`
 	Content     string `json:"content"`
 
+	// GifURL is not a DB column — for gif messages the URL lives in Content.
+	// This field is populated in code so clients receive a gif_url both on the
+	// live WS broadcast and on REST history reads.
+	GifURL string `json:"gif_url,omitempty"`
+
 	Delivered bool `json:"delivered"`
 	Read      bool `json:"read"`
 
@@ -33,20 +38,30 @@ func CreateMessage(m *Message) error {
 		return err
 	}
 
-	_, err = db.Exec(
-		"INSERT INTO messages (from_id, private_id, message_type, content, delivered, read) VALUES ($1, $2, $3, $4, $5, $6)",
+	// RETURNING id populates m.ID before the caller broadcasts the message,
+	// so live WS payloads carry a real primary key instead of the zero value.
+	err = db.QueryRow(
+		"INSERT INTO messages (from_id, private_id, message_type, content, delivered, read) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
 		m.FromID,
 		m.PrivateID,
 		m.MessageType,
 		m.Content,
 		boolToInt(m.Delivered),
 		boolToInt(m.Read),
-	)
+	).Scan(&m.ID)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// hydrateGifURL mirrors the stored content into GifURL for gif messages so
+// clients get a gif_url on both REST and WS payloads.
+func (m *Message) hydrateGifURL() {
+	if m.MessageType == "gif" {
+		m.GifURL = m.Content
+	}
 }
 
 func GetMessagesByPrivateID(privateId int64, page, limit int) ([]*Message, error) {
@@ -93,6 +108,7 @@ func GetMessagesByPrivateID(privateId int64, page, limit int) ([]*Message, error
 		}
 		m.Delivered = deliveredInt == 1
 		m.Read = readInt == 1
+		m.hydrateGifURL()
 		messages = append(messages, &m)
 	}
 
@@ -125,6 +141,7 @@ func GetMessageByID(messageId int64) (*Message, error) {
 	}
 	m.Delivered = deliveredInt == 1
 	m.Read = readInt == 1
+	m.hydrateGifURL()
 
 	return &m, nil
 }
@@ -168,6 +185,7 @@ func GetUndeliveredMessagesByPrivateID(privateId int64) ([]*Message, error) {
 		}
 		m.Delivered = deliveredInt == 1
 		m.Read = readInt == 1
+		m.hydrateGifURL()
 		messages = append(messages, &m)
 	}
 

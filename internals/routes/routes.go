@@ -47,6 +47,7 @@ func RegisterRoutes(
 	mux.Handle("GET /api/v1/auth/current-user", middleware.Authenticate(http.HandlerFunc(handlers.HandleGetCurrentUser)))
 
 	// ── Users (protected) ─────────────────────────────────────────────────────
+	mux.Handle("GET /api/v1/users/search", middleware.Authenticate(http.HandlerFunc(handlers.HandleSearchUsers)))
 	mux.Handle("GET /api/v1/users/{id}", middleware.Authenticate(http.HandlerFunc(handlers.GetUserByID)))
 
 	// ── Conversations (protected) ─────────────────────────────────────────────

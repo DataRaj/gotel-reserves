@@ -57,6 +57,8 @@ func main() {
 		log.Fatalf("[startup] failed to connect to Redis: %v", err)
 	}
 	defer rdb.Close()
+	// Register the shared client so HTTP handlers can reach the cache.
+	cache.SetClient(rdb)
 	logger.App.Printf("[startup] Redis connected url=%s", cfg.RedisURL)
 
 	// ── Job client ────────────────────────────────────────────────────────────
