@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"recallo/db"
@@ -51,6 +52,10 @@ func CreateMessage(m *Message) error {
 	).Scan(&m.ID)
 	if err != nil {
 		return err
+	}
+
+	if m.ID == 0 {
+		return fmt.Errorf("RETURNING id scan succeeded but ID is 0 (private_id=%d from_id=%d)", m.PrivateID, m.FromID)
 	}
 
 	return nil

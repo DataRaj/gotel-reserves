@@ -234,6 +234,12 @@ func handleIncomingEvents(hub *realtime.Hub, client *realtime.Client, event real
 			return
 		}
 
+		if msg.ID == 0 {
+			logger.App.Printf("[WEBSOCKET] error=message_id_zero user_id=%d from_id=%d private_id=%d", client.User.ID, msg.FromID, msg.PrivateID)
+			hub.SendError(client.User.ID, "message ID was not populated from database")
+			return
+		}
+
 		hub.SendEventToUserIds([]int64{msg.FromID, receiverId}, msg.FromID, realtime.EventMessage, map[string]any{
 			"message": msg,
 		})
