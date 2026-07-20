@@ -1,4 +1,3 @@
-// Package summaries — service.go
 package summaries
 
 import (
@@ -15,8 +14,6 @@ import (
 	"recallo/internals/jobs"
 	"recallo/internals/logger"
 )
-
-// ── transcriptRow ─────────────────────────────────────────────────────────────
 
 type transcriptRow struct {
 	id              int64

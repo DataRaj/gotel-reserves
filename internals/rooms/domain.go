@@ -1,15 +1,3 @@
-// Package rooms owns the room lifecycle domain: creation, token issuance,
-// session enforcement, and teardown.
-//
-// Dependency direction (Kennedy's rule):
-//
-//	rooms → livekit.Service (via the LiveKitService interface declared HERE)
-//	rooms ← handlers (routes call into this package's Service)
-//
-// The LiveKitService interface is declared in this package (the consumer),
-// not in the livekit package (the provider). This means:
-//   - room tests use a fake LiveKitService with zero dependency on the livekit package.
-//   - if the LiveKit SDK changes its API, only livekit/service.go changes; this file is untouched.
 package rooms
 
 import (
@@ -19,27 +7,15 @@ import (
 	lktypes "recallo/internals/livekit"
 )
 
-// LiveKitService is the interface this package depends on.
-// Declared here (consumer), implemented by *livekit.Service (provider).
-// Methods match exactly what this domain needs — nothing more.
-//
-// To mock in tests: implement this interface with a struct that returns canned values.
 type LiveKitService interface {
-	// CreateRoom pre-creates the LiveKit room with plan constraints.
 	CreateRoom(ctx context.Context, p lktypes.CreateRoomParams) error
 
-	// DeleteRoom tears down the room immediately; LiveKit fires room_finished webhook.
 	DeleteRoom(ctx context.Context, roomName string) error
 
-	// GenerateToken mints a capability JWT for one participant in one room.
 	GenerateToken(p lktypes.GenerateTokenParams) (string, error)
 
-	// ListParticipantCount returns the number of participants currently in the room.
-	// Uses LiveKit's real-time state — not the DB attendance log (which lags).
-	// Returns 0 without error when the room doesn't exist in LiveKit yet (draft state).
 	ListParticipantCount(ctx context.Context, roomName string) (int, error)
 
-	// RemoveParticipant evicts a participant; caller must handle DB-side ban logic.
 	RemoveParticipant(ctx context.Context, roomName, identity string) error
 
 	// Host returns the LiveKit Cloud WSS host URL for returning to clients.

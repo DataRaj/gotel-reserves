@@ -61,8 +61,6 @@ func CreateMessage(m *Message) error {
 	return nil
 }
 
-// hydrateGifURL mirrors the stored content into GifURL for gif messages so
-// clients get a gif_url on both REST and WS payloads.
 func (m *Message) hydrateGifURL() {
 	if m.MessageType == "gif" {
 		m.GifURL = m.Content
@@ -197,9 +195,6 @@ func GetUndeliveredMessagesByPrivateID(privateId int64) ([]*Message, error) {
 	return messages, nil
 }
 
-// MarkAllIncomingMessagesAsDelivered silently marks every undelivered message
-// sent TO userID (not by them) as delivered=1 in a single atomic query.
-// Called on WebSocket connect so no goroutine-level looping is needed.
 func MarkAllIncomingMessagesAsDelivered(userID int64) error {
 	db, err := db.GetDB()
 	if err != nil {

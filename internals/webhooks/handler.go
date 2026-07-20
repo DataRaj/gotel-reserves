@@ -1,24 +1,3 @@
-// Package webhooks handles inbound LiveKit webhook events.
-//
-// Architecture:
-//   - One HTTP handler (Handler) at POST /webhooks/livekit
-//   - Handler validates HMAC via webhook.ReceiveWebhookEvent (LiveKit SDK) which:
-//       1. Reads raw body
-//       2. Parses + verifies Authorization header JWT
-//       3. Validates sha256(body) == token's SHA256 claim (base64-encoded)
-//   - Deduplication via webhook_events table (ON CONFLICT (event_id) DO NOTHING)
-//   - DB writes are synchronous; external API calls (job enqueue Redis push) are
-//     best-effort — Postgres row is the durable record, reconciler handles gaps.
-//
-// Idempotency guarantee:
-//   LiveKit delivers at-least-once with retries. The webhook_events table stores
-//   the event_id. ON CONFLICT DO NOTHING means re-delivery is a no-op.
-//   RowsAffected == 0 → skip processing.
-//
-// Error policy:
-//   - HMAC failure → 401
-//   - DB error on dedup → 500 (LiveKit retries; idempotency handles it)
-//   - Dispatch error → log + 200 (reconciler fixes divergence; retry won't help)
 package webhooks
 
 import (
@@ -38,8 +17,6 @@ import (
 	"recallo/internals/logger"
 )
 
-// Handler is the HTTP handler for inbound LiveKit webhooks.
-// Constructed via NewHandler and registered via RegisterRoutes.
 type Handler struct {
 	// keyProvider maps API key → secret for HMAC validation.
 	keyProvider lkauth.KeyProvider
@@ -288,8 +265,6 @@ func (h *Handler) handleEgressEnded(ctx context.Context, event *lkproto.WebhookE
 	return nil
 }
 
-// extractEgressFileInfo pulls file metadata from the first available file output
-// in the EgressInfo proto. Returns empty string / zeros if none found.
 func extractEgressFileInfo(ei *lkproto.EgressInfo) (fileURL string, fileSizeBytes int64, durationSec int) {
 	// Direct file output (most common for RoomComposite egress).
 	if fi := ei.GetFile(); fi != nil {
@@ -302,12 +277,6 @@ func extractEgressFileInfo(ei *lkproto.EgressInfo) (fileURL string, fileSizeByte
 	return "", 0, 0
 }
 
-// ── Repository ────────────────────────────────────────────────────────────────
-
-// insertWebhookEvent persists an event_id for idempotency.
-// Returns (true, nil)  → newly inserted — process this event.
-// Returns (false, nil) → duplicate (ON CONFLICT hit) — skip.
-// Returns (false, err) → real DB error.
 var insertWebhookEvent = func(ctx context.Context, eventID, eventType string, payload []byte) (bool, error) {
 	result, err := db.DB.ExecContext(ctx, `
 		INSERT INTO webhook_events (event_id, event_type, payload, received_at)

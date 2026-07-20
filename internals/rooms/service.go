@@ -12,22 +12,11 @@ import (
 	lktypes "recallo/internals/livekit"
 )
 
-// Service owns all business logic for the rooms domain.
-//
-// Dependencies are passed explicitly at construction time — no package-level globals.
-// This makes the service fully testable in isolation: swap LiveKitService with a fake,
-// swap the DB with a test DB, and every method is exercisable without a real LiveKit Cloud.
-//
-// Design: the service layer never writes raw SQL — it delegates all DB access to the
-// repository functions in this package (repository.go). Business rules live here;
-// persistence mechanics live there.
 type Service struct {
 	lk       LiveKitService // interface — not the concrete *livekit.Service type
 	guestCfg configs.GuestTierConfig
 }
 
-// NewService constructs the rooms Service.
-// lk must satisfy the LiveKitService interface declared in this package.
 func NewService(lk LiveKitService, guestCfg configs.GuestTierConfig) *Service {
 	return &Service{
 		lk:       lk,

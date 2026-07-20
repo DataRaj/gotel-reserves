@@ -13,12 +13,8 @@ import (
 	"recallo/internals/utils"
 )
 
-// mutualSearchTTL is how long a search result set stays cached in Redis.
 const mutualSearchTTL = 300 * time.Second
 
-// HandleSearchUsers serves GET /api/v1/users/search?q={query}.
-// It returns users who share a mutual connection with the caller, backed by a
-// Redis cache keyed per (user, query). The SQL lives in models.SearchMutualUsers.
 func HandleSearchUsers(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContext(r.Context())
 

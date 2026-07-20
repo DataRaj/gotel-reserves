@@ -24,7 +24,6 @@ var (
 	frontendURL       = "https://recallo.tech"
 )
 
-// InitOAuth initializes the GitHub OAuth configuration
 func InitOAuth(clientID, clientSecret, redirectURL string, fURL string) {
 	frontendURL = fURL
 	githubOAuthConfig = &oauth2.Config{
@@ -54,7 +53,6 @@ func generateStateOauthCookie(w http.ResponseWriter) string {
 	return state
 }
 
-// HandleBeginGithubAuth redirects the user to the GitHub login page
 func HandleBeginGithubAuth(w http.ResponseWriter, r *http.Request) {
 	state := generateStateOauthCookie(w)
 	url := githubOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)

@@ -1,21 +1,5 @@
-// Package summaries — prompts.go
-//
-// Category-driven system prompt selection.
-//
-// Design: prompts are pure data — no logic, no imports.
-// The service layer calls SystemPromptFor(category) and passes the result
-// directly to the Grok client. If a category is unrecognised, the fallback
-// business_sync prompt is used — conservative and always safe.
-//
-// Safety guardrails baked into every prompt:
-//   - Ignore cross-talk, filler words, and STT artefacts.
-//   - Never fabricate information not present in the transcript.
-//   - If a field has no content, return an empty array — not null.
-//   - Produce professional language regardless of transcript quality.
 package summaries
 
-// RoomCategory is the meeting type tag set at room creation and persisted in the
-// SummarizePayload. It drives prompt selection — keeps LLM output domain-relevant.
 type RoomCategory string
 
 const (

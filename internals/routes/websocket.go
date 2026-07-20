@@ -99,8 +99,6 @@ func HandleWebSocketConnection(hub *realtime.Hub, w http.ResponseWriter, r *http
 	readPump(ctx, cancel, hub, client)
 }
 
-// heartbeat sends a periodic ping to detect stale connections and pushes a
-// heartbeat event so the client knows the connection is still alive.
 func heartbeat(ctx context.Context, client *realtime.Client) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -125,9 +123,6 @@ func heartbeat(ctx context.Context, client *realtime.Client) {
 	}
 }
 
-// writePump drains the client's Send channel and writes each event to the
-// WebSocket connection. Exits when the context is cancelled or the channel
-// is closed.
 func writePump(ctx context.Context, client *realtime.Client) {
 	for {
 		select {

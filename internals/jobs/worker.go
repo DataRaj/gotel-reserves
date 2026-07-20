@@ -1,14 +1,3 @@
-// Package jobs — worker.go
-// WorkerPool runs bounded goroutine pools per job type.
-// One goroutine per slot; each slot blocks on BRPOP.
-// A single goroutine runs the delayed-queue scheduler (ZRANGEBYSCORE poll).
-//
-// Concurrency contract (from architecture doc):
-//   - TypeTranscribe: 3 concurrent workers
-//   - TypeSummarize:  2 concurrent workers
-//
-// Shutdown: cancel the context passed to Start; all workers drain current
-// jobs and return within BRPOPTimeout window. No abrupt kill.
 package jobs
 
 import (
@@ -29,9 +18,6 @@ const (
 	maxBackoffSec = 512.0             // cap: 2^9 = 512s ≈ 8.5 min
 )
 
-// HandlerFunc is the processing function for a single job.
-// Return nil → success (job marked completed).
-// Return non-nil → failure (retry / DLQ logic applied).
 type HandlerFunc func(ctx context.Context, job Job) error
 
 // WorkerPool manages bounded goroutine pools per job type.

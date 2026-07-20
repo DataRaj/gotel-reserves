@@ -1,13 +1,3 @@
-// Package transcripts — spaces.go
-//
-// Generates presigned GET URLs for DigitalOcean Spaces (S3-compatible).
-// The presigner is the only DO Spaces interaction this package performs —
-// we never download the file to the Go server.
-//
-// Presigned URL TTL strategy:
-//   - min(max(15 min, ceil(duration_sec/60)*2 min), 4 hrs)
-//   - For unknown duration: default 60 minutes (safe for most recordings).
-//   - Deepgram's internal fetch timeout is much shorter than these windows.
 package transcripts
 
 import (
@@ -36,9 +26,6 @@ func newSpacesPresigner(cfg configs.SpacesConfig) *spacesPresigner {
 	return &spacesPresigner{cfg: cfg}
 }
 
-// PresignGet returns a presigned GET URL for a Spaces object key.
-// durationHint is the known recording duration; used to compute a safe TTL.
-// Pass 0 if unknown — defaults to 60 minutes.
 func (s *spacesPresigner) PresignGet(key string, durationHint time.Duration) (string, error) {
 	if s.cfg.Endpoint == "" || s.cfg.Bucket == "" {
 		return "", fmt.Errorf("spaces.PresignGet: endpoint and bucket must be configured")

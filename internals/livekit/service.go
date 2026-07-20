@@ -14,8 +14,6 @@ import (
 	"recallo/internals/configs"
 )
 
-// VideoQuality maps the human-readable tier config string to LiveKit's internal
-// video quality constant. Used at token-generation time for guest tier enforcement.
 type VideoQuality string
 
 const (
@@ -24,8 +22,6 @@ const (
 	VideoQualityHigh   VideoQuality = "high"
 )
 
-// ParticipantRole determines which VideoGrant flags are set on the issued token.
-// The backend — not the client — decides the role; the client cannot self-elevate.
 type ParticipantRole string
 
 const (

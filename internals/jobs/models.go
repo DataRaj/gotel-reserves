@@ -1,6 +1,3 @@
-// Package jobs defines the shared types for the async job queue.
-// The queue is dual-layered: Redis LIST is the fast path (BRPOP),
-// Postgres job_queue is the durable crash-recovery mirror.
 package jobs
 
 import (
@@ -8,7 +5,6 @@ import (
 	"time"
 )
 
-// JobType enumerates the concrete pipeline steps.
 type JobType string
 
 const (

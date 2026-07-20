@@ -10,8 +10,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// getEncryptionKey returns a 32-byte key from environment or falls back for demo.
-// In production, ensure OAUTH_ENCRYPTION_KEY is exactly 32 bytes!
 func getEncryptionKey() []byte {
 	key := os.Getenv("OAUTH_ENCRYPTION_KEY")
 	if len(key) >= 32 {
@@ -21,7 +19,6 @@ func getEncryptionKey() []byte {
 	return []byte("12345678901234567890123456789012")
 }
 
-// SaveOAuthToken encrypts and saves an OAuth2 token to the database linked to a User
 func SaveOAuthToken(userID int64, provider, providerUserID string, token *oauth2.Token) error {
 	data, err := json.Marshal(token)
 	if err != nil {

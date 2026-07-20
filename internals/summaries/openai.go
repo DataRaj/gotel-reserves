@@ -1,25 +1,3 @@
-// Package summaries — openai.go
-//
-// Raw net/http Grok (xAI) client. No SDK dependency.
-// The xAI API is OpenAI-compatible: same request envelope, same response
-// shape, same Structured Outputs (json_schema / strict mode) contract.
-//
-// Endpoint: POST https://api.x.ai/v1/chat/completions
-//
-// Structured Outputs contract:
-//   response_format.type = "json_schema"
-//   response_format.json_schema = { strict: true, schema: <SummaryOutput schema> }
-//
-// Chunking (map-reduce):
-//   Transcripts that exceed maxChunkRunes are split into overlapping windows.
-//   Each chunk produces a partial SummaryOutput. A final reduce pass merges
-//   all partials into a single SummaryOutput via a second LLM call so the
-//   output is coherent, not a concatenated list.
-//
-// Token budget:
-//   grok-3-mini context window = 131k tokens ≈ 524k chars (rough).
-//   maxChunkRunes = 80_000 chars (safe margin with prompt overhead).
-//   overlap = 500 chars to avoid cutting sentences mid-thought.
 package summaries
 
 import (
@@ -44,9 +22,6 @@ const (
 	chunkOverlap  = 500    // trailing chars carried into next chunk
 )
 
-// ── Output schema (Structured Outputs) ───────────────────────────────────────
-
-// ActionItem is a single task extracted from the transcript.
 type ActionItem struct {
 	Assignee string `json:"assignee"` // participant name or "unassigned"
 	Task     string `json:"task"`

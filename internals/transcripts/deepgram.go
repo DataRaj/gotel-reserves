@@ -1,20 +1,3 @@
-// Package transcripts — deepgram.go
-//
-// Deepgram pre-recorded (batch) REST API client.
-//
-// API contract used:
-//
-//	POST https://api.deepgram.com/v1/listen
-//	Body: {"url": "<presigned-spaces-url>"}
-//	Query params: model, language, smart_format, punctuate, diarize,
-//	              utterances, words (word-level timestamps)
-//
-// The client never downloads the file itself. It hands Deepgram a
-// short-lived presigned GET URL; Deepgram fetches and processes the media
-// directly. This keeps bandwidth and memory pressure off the Go server.
-//
-// Presigned URL TTL must be longer than the expected Deepgram processing
-// time. Rule: ceil(duration_sec / 60) * 2 minutes, min 15 min, max 4 hrs.
 package transcripts
 
 import (
@@ -33,10 +16,6 @@ import (
 
 const deepgramListenURL = "https://api.deepgram.com/v1/listen"
 
-// ── Deepgram response structures ─────────────────────────────────────────────
-// Only the fields we actually persist. Deepgram returns more; we discard the rest.
-
-// DeepgramResponse is the top-level response envelope from /v1/listen.
 type DeepgramResponse struct {
 	Metadata DeepgramMetadata `json:"metadata"`
 	Results  DeepgramResults  `json:"results"`

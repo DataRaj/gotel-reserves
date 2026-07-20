@@ -2,23 +2,6 @@ package rooms
 
 import "errors"
 
-// Sentinel errors for the rooms domain.
-//
-// Usage pattern (Kennedy's error propagation):
-//
-//	return fmt.Errorf("rooms.Service.CreateGuestRoom: %w", ErrPlanExceeded)
-//
-// Handler layer uses errors.Is to map to HTTP status codes:
-//
-//	ErrRoomNotFound    → 404 Not Found
-//	ErrRoomEnded       → 409 Conflict  (room already finished)
-//	ErrPlanExceeded    → 403 Forbidden (participant cap reached)
-//	ErrSessionExpired  → 410 Gone      (30-min window elapsed)
-//	ErrExtendOnce      → 409 Conflict  (guest already used extend)
-//
-// Sentinel errors must never carry dynamic context in the error value itself —
-// that context lives in the wrapping fmt.Errorf message. errors.Is() only
-// compares the sentinel identity, not the message.
 var (
 	// ErrRoomNotFound is returned when a room ID is not present in the DB.
 	ErrRoomNotFound = errors.New("room not found")
