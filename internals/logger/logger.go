@@ -1,26 +1,3 @@
-// Package logger provides structured, leveled, color-coded logging built on
-// the standard library log/slog. Zero external dependencies.
-//
-// # Two handlers, one env var:
-//
-//	APP_ENV=production  →  JSON lines to stdout + file  (machine-readable)
-//	APP_ENV=<anything>  →  Color-coded text to stdout + plain text to file
-//
-// # Backward-compatible shim:
-//
-//	logger.App is a *log.Logger that routes every Printf call through slog
-//	at INFO level. All existing call sites work unchanged. New code should
-//	use logger.Info / logger.Error / logger.FromContext instead.
-//
-// # Context propagation:
-//
-//	logger.With(ctx, "request_id", id)  — stores a child logger in ctx
-//	logger.FromContext(ctx)             — retrieves it (falls back to root)
-//
-// # Output format (dev):
-//
-//	08:12:34.521 INF [jobs] worker started type=transcribe slot=0
-//	08:12:34.522 ERR [db] query failed error="pq: ..." retry=3
 package logger
 
 import (
@@ -36,8 +13,6 @@ import (
 	"sync"
 	"time"
 )
-
-// ── ANSI color codes ──────────────────────────────────────────────────────────
 
 const (
 	ansiReset     = "\033[0m"

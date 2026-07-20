@@ -10,7 +10,6 @@ import (
 	"recallo/internals/models"
 )
 
-// GenerateRefreshToken produces a cryptographically random URL-safe token.
 func GenerateRefreshToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -19,7 +18,6 @@ func GenerateRefreshToken() (string, error) {
 	return base64.URLEncoding.Strict().EncodeToString(b), nil
 }
 
-// UpdateRefreshToken persists a new refresh token for the given platform.
 func UpdateRefreshToken(userID int64, platform, refreshToken string) error {
 	db, err := db.GetDB()
 	if err != nil {

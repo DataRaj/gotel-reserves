@@ -14,7 +14,7 @@ Recallo is a backend platform for real-time 1-toSt-1 private chat. Users can reg
 
 | Layer       | Technology                                            |
 | ----------- | ----------------------------------------------------- |
-| Language    | Go 1.25                                               |
+| Language    | Go 1.26                                               |
 | HTTP Router | `net/http` stdlib ServeMux (Go 1.22+ pattern routing) |
 | Database    | Postgres via `database/sql` + `postgresql`        |
 | Auth        | JWT (`golang-jwt/jwt` v5) + bcrypt password hashing   |

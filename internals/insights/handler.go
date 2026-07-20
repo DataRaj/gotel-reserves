@@ -1,11 +1,3 @@
-// Package insights exposes a single, always-200 status endpoint that reports the
-// state of a room's post-meeting pipeline (egress → Deepgram transcript → Grok
-// summary) and embeds the transcript/summary once each becomes available.
-//
-// Why it exists: the transcript and summary endpoints return 404 while their async
-// jobs are still running, which makes a polling frontend throw. This endpoint gives
-// the UI one place to poll that never 404s for an in-progress pipeline — it returns
-// a "processing" payload with the current step until everything is ready.
 package insights
 
 import (
@@ -16,7 +8,6 @@ import (
 	"time"
 )
 
-// Handler serves GET /api/v1/rooms/{room_name}/insights.
 type Handler struct {
 	db *sql.DB
 }

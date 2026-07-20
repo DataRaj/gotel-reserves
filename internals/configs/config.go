@@ -8,19 +8,10 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-// ── Sub-configs (one struct per concern, passed explicitly — no globals) ───────
-
-// HTTPServer holds HTTP server binding configuration.
 type HTTPServer struct {
 	Address string `env:"HTTP_ADDRESS" env-default:"0.0.0.0:8080"`
 }
 
-// LiveKitConfig groups all values needed to call LiveKit Cloud APIs and validate
-// inbound webhooks. Values come from: cloud.livekit.io → project → Settings.
-//
-// Design note (Bill Kennedy decoupling): this struct is passed explicitly to every
-// component that needs it (token generator, webhook validator, room service client).
-// Nothing reads these values from a global variable.
 type LiveKitConfig struct {
 	// Host is the wss:// WebSocket URL of the LiveKit Cloud project.
 	// Used by frontend SDKs to connect; stored here for token metadata.

@@ -8,16 +8,10 @@ import (
 	"strings"
 )
 
-// Handler exposes the rooms domain over HTTP.
-//
-// Dependency: only depends on *Service (this package) — not on the livekit package.
-// The handler layer's job is: parse request → call service → map error to status → encode response.
-// No business logic lives here; no DB calls; no LiveKit calls.
 type Handler struct {
 	svc *Service
 }
 
-// NewHandler constructs the rooms HTTP handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }

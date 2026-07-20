@@ -1,16 +1,3 @@
-// Package rooms — session_enforcer.go
-//
-// SessionEnforcer is a background goroutine that periodically scans for guest rooms
-// whose session duration has elapsed and triggers teardown.
-//
-// Why not rely only on webhooks for this?
-// The session limit is our policy, not LiveKit's. LiveKit doesn't know about our
-// 30-minute cap. We must proactively delete the room when the window closes.
-// The webhook (room_finished) then confirms teardown and updates DB status.
-//
-// Design: The enforcer is an event in the "event-driven lifecycle" model — it fires
-// a DeleteRoom when our internal clock says the session expired. Everything after
-// that is driven by the room_finished webhook (same path as a host manually ending).
 package rooms
 
 import (
@@ -21,8 +8,6 @@ import (
 	"recallo/db"
 )
 
-// SessionEnforcer periodically checks for expired guest sessions and tears them down.
-// It runs as a goroutine started in main.go and is stopped via context cancellation.
 type SessionEnforcer struct {
 	svc      *Service
 	interval time.Duration // how often to scan (default: 1 minute)

@@ -1,22 +1,3 @@
-// Package transcripts — service.go
-//
-// Service is the domain entry point for post-session transcription.
-// It implements jobs.HandlerFunc signature, registered in main.go as:
-//
-//	workerPool.Register(jobs.TypeTranscribe, transcriptSvc.Handle)
-//
-// Processing sequence per job:
-//  1. Decode TranscribePayload from job.Payload.
-//  2. Look up recording row to get file_url and duration_sec.
-//  3. Presign a GET URL for the Spaces object key (duration-aware TTL).
-//  4. POST the presigned URL to Deepgram /v1/listen (Deepgram fetches the file).
-//  5. Parse word-level response.
-//  6. Atomically write the transcript row to Postgres.
-//  7. Enqueue a TypeSummarize job with the new transcript_id.
-//
-// All DB writes are wrapped in a single transaction (steps 6+7) so the
-// transcript row and the summary job either both commit or both roll back.
-// On rollback the job is retried — Deepgram returns the same result.
 package transcripts
 
 import (
@@ -32,8 +13,6 @@ import (
 	"recallo/internals/jobs"
 	"recallo/internals/logger"
 )
-
-// ── recording row query result ─────────────────────────────────────────────
 
 type recordingRow struct {
 	id          int64

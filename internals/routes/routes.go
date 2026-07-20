@@ -13,12 +13,6 @@ import (
 	"recallo/internals/webhooks"
 )
 
-// RegisterRoutes builds and returns the root HTTP mux with all application
-// routes registered. The mux is wrapped with CORS middleware so every route
-// benefits from it automatically.
-//
-// Parameters are passed explicitly (no package-level state) so this function
-// is fully testable: pass a nil hub and stub handlers for unit tests.
 func RegisterRoutes(
 	hub *realtime.Hub,
 	roomsHandler *rooms.Handler,

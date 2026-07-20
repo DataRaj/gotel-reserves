@@ -13,8 +13,6 @@ import (
 	"recallo/internals/utils"
 )
 
-// Pagination defaults for message listing.
-// Keep them here (not as bare literals) so any future change is a one-liner.
 const (
 	defaultPage  = 1
 	defaultLimit = 20

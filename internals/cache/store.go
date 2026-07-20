@@ -7,12 +7,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// client holds the process-wide Redis client so HTTP handlers can reach the
-// cache without threading *redis.Client through every constructor. main.go
-// calls SetClient once after cache.Connect succeeds.
 var client *redis.Client
 
-// SetClient registers the shared Redis client. Call once at startup.
 func SetClient(c *redis.Client) {
 	client = c
 }

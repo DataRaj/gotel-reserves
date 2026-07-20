@@ -1,21 +1,3 @@
-// Package middleware — muxlogger.go
-//
-// Loggingmiddleware is the HTTP request/response interceptor.
-//
-// Per request it:
-//  1. Generates (or extracts) an X-Request-ID and injects it into the context
-//     via logger.With — all downstream log calls automatically inherit it.
-//  2. Captures status code and response body size via responseWriter.
-//  3. Emits a single color-coded log line after the handler completes:
-//
-//	15:04:05.123 INF  POST  ✓ 201  3.12ms   127.0.0.1  /api/v1/rooms   req=a1b2c3d4
-//
-// Status color coding:
-//
-//	2xx → Green
-//	3xx → Cyan
-//	4xx → Yellow
-//	5xx → Bold Red
 package middleware
 
 import (
@@ -28,8 +10,6 @@ import (
 
 	"recallo/internals/logger"
 )
-
-// ── Context key for request ID ────────────────────────────────────────────────
 
 type reqIDKey struct{}
 

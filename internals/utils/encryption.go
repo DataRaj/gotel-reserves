@@ -8,7 +8,6 @@ import (
 	"io"
 )
 
-// Encrypt encrypts plain text using AES-GCM with the provided 32-byte secret key
 func Encrypt(plaintext []byte, secretKey []byte) ([]byte, error) {
 	if len(secretKey) != 32 {
 		return nil, errors.New("secret key must be exactly 32 bytes")
@@ -33,7 +32,6 @@ func Encrypt(plaintext []byte, secretKey []byte) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
-// Decrypt decrypts ciphertext using AES-GCM with the provided 32-byte secret key
 func Decrypt(ciphertext []byte, secretKey []byte) ([]byte, error) {
 	if len(secretKey) != 32 {
 		return nil, errors.New("secret key must be exactly 32 bytes")

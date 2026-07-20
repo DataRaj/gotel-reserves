@@ -1,8 +1,3 @@
-// Package jobs — client.go
-// Client is the write-side of the job queue. Every caller that needs to enqueue
-// a job depends on this interface, not the concrete struct.
-// Kennedy's rule: interface declared here at the provider since it's the sole
-// boundary point; consuming packages declare their own minimal interface if needed.
 package jobs
 
 import (
@@ -16,10 +11,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Client is the enqueue interface. Callers receive this, not *client.
-// EnqueueTx allows atomic enqueue inside an existing DB transaction
-// (e.g. inside handleEgressEnded so the job row and recording update
-// are committed atomically or both rolled back).
 type Client interface {
 	// Enqueue opens its own DB transaction.
 	Enqueue(ctx context.Context, jobType JobType, payload any) error

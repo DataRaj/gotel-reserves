@@ -9,10 +9,8 @@ import (
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
-// DB is the global database connection pool, unexported to enforce access via package functions.
 var DB *sql.DB
 
-// Config holds the tuning knobs for the connection pool.
 type Config struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
